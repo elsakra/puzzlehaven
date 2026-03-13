@@ -292,6 +292,37 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
+### Commit 17–19: Social Share Buttons + Confetti + Keyboard Polish (Phase 5.2 + Engagement Phase 6)
+
+**MISSION.md Phase 5.2 — `social-share-buttons`:**
+
+- **`src/components/puzzle/CompletionModal.tsx`** — Added `puzzleUrl` and `imageUrl` props. Three social share buttons now appear below the Share/Copy row, separated by a divider:
+  - **Pinterest** (red) — `pinterest.com/pin/create/button/` with `url`, `media` (puzzle thumbnail), and pre-filled `description` (title, time, pieces, stars)
+  - **Twitter/X** (black) — `twitter.com/intent/tweet` with share text including time, pieces, stars, score
+  - **Facebook** (blue) — `facebook.com/sharer/sharer.php` with puzzle URL
+  - Each opens in a `600×500` popup; no OAuth or API keys required
+- **`src/lib/gtag.ts`** — Added `analytics.puzzleAbandoned()` event helper (`puzzle_abandoned`, with `puzzle_id`, `snapped_pieces`, `total_pieces`)
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — Passes `puzzleUrl = window.location.href` and `imageUrl` down to `CompletionModal`
+
+**Engagement Plan Phase 6 — `polish-confetti-keys`:**
+
+- **`src/engine/AnimationManager.ts`** — New `ConfettiParticle` interface + `triggerConfetti(canvasW, canvasH)` method: spawns 120 particles in an upward cone from canvas center; each particle has position, velocity, gravity, rotation, alpha decay, and a random color from the site palette (amber/orange/rose/emerald/indigo/sky/violet/gold). `stepAndGetConfetti()` advances physics each frame (gravity, air friction, rotation, alpha fade) and prunes dead particles. `clear()` also resets confetti.
+- **`src/engine/PuzzleEngine.ts`** — Calls `anim.triggerConfetti(canvas.width, canvas.height)` immediately after `sound.complete()` when the last piece snaps. `draw()` calls `anim.stepAndGetConfetti()` and renders particles in screen space (after `ctx.restore()`) so confetti is unaffected by world pan/zoom.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — Unified keyboard shortcut handler:
+  - `Ctrl/Cmd+Z` — undo (was already implemented)
+  - `H` — hint
+  - `Space` — toggle preview image
+  - `F` — toggle fullscreen
+  - `+`/`=` — zoom in
+  - `-` — zoom out
+  - Shortcuts suppressed when focus is inside `INPUT`, `TEXTAREA`, or `SELECT`
+- **Progress toast** — "✓ Progress saved — come back anytime!" pill appears on first piece snap, auto-dismisses after 4 s, hidden once puzzle completes or on new game
+- **`beforeunload` analytics** — `analytics.puzzleAbandoned()` fires when the user navigates away mid-puzzle (snapped > 0, not yet complete)
+
+**Build result:** 128 static pages, exit 0.
+
+---
+
 ### Commit 16: Fix All Broken Puzzle Images
 
 **Bug fix — `fix-broken-images`:**
@@ -345,7 +376,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 16)
+## Current State (as of commit 19)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -378,6 +409,11 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **Canvas pan/zoom** — mouse wheel zoom, pinch-to-zoom on mobile, drag-to-pan on empty canvas, "Reset View" button appears when view is transformed
 - **Web Audio sound effects** — pickup pop, snap chime, group-merge resonance, completion arpeggio; mute toggle persisted to localStorage
 - **AdSense live** (`ca-pub-5593486984619998`) — publisher script in every page `<head>`; leaderboard on homepage between categories/popular, leaderboard below puzzle canvas, mobile banner in mobile related-puzzles area; site submitted for Google review
+- **Social share buttons** — Pinterest, Twitter/X, and Facebook icon buttons on the completion modal; Pinterest pre-populates puzzle thumbnail as pin media; all open in a 600×500 popup with no API keys
+- **Confetti on completion** — 120 canvas particles burst upward from puzzle center when the last piece snaps; physics-based (gravity, air friction, rotation, alpha fade ~3 s); renders in screen space
+- **Keyboard shortcuts** — H=hint, Space=toggle preview, F=fullscreen, +/=zoom in, −=zoom out, Ctrl/Cmd+Z=undo; suppressed when focus is inside text inputs
+- **Progress-saved toast** — "✓ Progress saved — come back anytime!" pill appears on first piece snap, auto-dismisses after 4 s
+- **puzzle_abandoned analytics** — GA4 `puzzle_abandoned` event fires on `beforeunload` when user leaves mid-puzzle
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)
@@ -389,10 +425,11 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ### Pending Plans
 
-Two detailed plan files exist with all pending work:
+Three detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Sound, animation, scoring, undo, hints, pan/zoom, game modes, streaks, achievements, settings
-- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- SEO landing pages, ad optimization, viral loops, Cloudinary migration, GA4, email capture, custom puzzle sharing
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: edge-sort, game-modes, difficulty-rotation, stats-achievements, settings-panel
+- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked), cloudinary-images
+- `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 
 ---
 
