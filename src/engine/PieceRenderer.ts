@@ -68,8 +68,8 @@ export function renderPiece(
   );
   const srcW = srcRight - srcX;
   const srcH = srcBottom - srcY;
-  const destX = srcX - piece.correctX - totalPad;
-  const destY = srcY - piece.correctY - totalPad;
+  const destX = srcX - piece.correctX;
+  const destY = srcY - piece.correctY;
   if (srcW > 0 && srcH > 0) {
     ctx.drawImage(image, srcX, srcY, srcW, srcH, destX, destY, srcW, srcH);
   }
