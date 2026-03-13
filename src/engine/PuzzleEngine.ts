@@ -252,6 +252,10 @@ export class PuzzleEngine {
     this.showPreview = show;
   }
 
+  resize() {
+    this.fitToCanvas();
+  }
+
   private saveState() {
     try {
       const key = `puzzle_${this.puzzleId}`;

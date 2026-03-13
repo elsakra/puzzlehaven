@@ -23,6 +23,7 @@ export default function PuzzleCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<PuzzleEngine | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [timer, setTimer] = useState(0);
   const [moves, setMoves] = useState(0);
@@ -32,6 +33,16 @@ export default function PuzzleCanvas({
   const [pieceCount, setPieceCount] = useState(initialPieceCount);
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const sizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const box = canvasContainerRef.current;
+    if (!canvas || !box) return;
+    const rect = box.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+  }, []);
 
   const initEngine = useCallback(
     async (count: number) => {
@@ -45,12 +56,7 @@ export default function PuzzleCanvas({
       setMoves(0);
       setProgress({ snapped: 0, total: 0 });
 
-      const container = containerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
-      }
+      sizeCanvas();
 
       const engine = new PuzzleEngine(canvas, {
         onTimerUpdate: setTimer,
@@ -68,10 +74,11 @@ export default function PuzzleCanvas({
         engineRef.current = engine;
       } catch (err) {
         console.error("Failed to init puzzle engine:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
-    [imageUrl, puzzleId, seed]
+    [imageUrl, puzzleId, seed, sizeCanvas]
   );
 
   useEffect(() => {
@@ -83,17 +90,13 @@ export default function PuzzleCanvas({
 
   useEffect(() => {
     const handleResize = () => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-      const rect = container.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
+      sizeCanvas();
+      engineRef.current?.resize();
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [sizeCanvas]);
 
   const togglePreview = useCallback(() => {
     setShowPreview((prev) => {
@@ -108,11 +111,23 @@ export default function PuzzleCanvas({
     if (!container) return;
 
     if (!document.fullscreenElement) {
-      container.requestFullscreen().then(() => setIsFullscreen(true));
+      container.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        setTimeout(() => {
+          sizeCanvas();
+          engineRef.current?.resize();
+        }, 100);
+      });
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false));
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        setTimeout(() => {
+          sizeCanvas();
+          engineRef.current?.resize();
+        }, 100);
+      });
     }
-  }, []);
+  }, [sizeCanvas]);
 
   const handlePieceCountChange = useCallback((count: number) => {
     setPieceCount(count);
@@ -137,7 +152,11 @@ export default function PuzzleCanvas({
         isFullscreen={isFullscreen}
       />
 
-      <div className="relative w-full bg-stone-100 rounded-xl overflow-hidden border border-stone-200" style={{ aspectRatio: "4/3" }}>
+      <div
+        ref={canvasContainerRef}
+        className="relative w-full bg-stone-100 rounded-xl overflow-hidden border border-stone-200"
+        style={{ aspectRatio: "4/3" }}
+      >
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-10">
             <div className="flex flex-col items-center gap-3">

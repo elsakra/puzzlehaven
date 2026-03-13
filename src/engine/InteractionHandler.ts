@@ -12,6 +12,7 @@ export interface DragState {
 
 export class InteractionHandler {
   private canvas: HTMLCanvasElement;
+  private hitCtx: CanvasRenderingContext2D;
   private pieces: PieceState[];
   private definitions: PieceDefinition[];
   private rendered: RenderedPiece[];
@@ -37,6 +38,12 @@ export class InteractionHandler {
     this.definitions = definitions;
     this.rendered = rendered;
     this.config = config;
+
+    const hitCanvas = document.createElement("canvas");
+    hitCanvas.width = 1;
+    hitCanvas.height = 1;
+    this.hitCtx = hitCanvas.getContext("2d")!;
+
     this.bindEvents();
   }
 
@@ -61,8 +68,9 @@ export class InteractionHandler {
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
   }
 
-  private screenToWorld(clientX: number, clientY: number): { x: number; y: number } {
+  private screenToWorld(clientX: number, clientY: number): { x: number; y: number } | null {
     const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
     const sx = (clientX - rect.left) * (this.canvas.width / rect.width);
     const sy = (clientY - rect.top) * (this.canvas.height / rect.height);
     return {
@@ -73,23 +81,17 @@ export class InteractionHandler {
 
   private hitTest(worldX: number, worldY: number): number | null {
     const sorted = [...this.pieces]
-      .map((p, i) => ({ ...p, idx: i }))
+      .filter((p) => !p.snapped)
       .sort((a, b) => b.zIndex - a.zIndex);
 
+    this.hitCtx.resetTransform();
+
     for (const piece of sorted) {
-      if (piece.snapped) continue;
-      const def = this.definitions[piece.id];
       const rp = this.rendered[piece.id];
       const localX = worldX - piece.x;
       const localY = worldY - piece.y;
 
-      const testCanvas = document.createElement("canvas");
-      testCanvas.width = 1;
-      testCanvas.height = 1;
-      const testCtx = testCanvas.getContext("2d")!;
-      testCtx.translate(-localX, -localY);
-
-      if (testCtx.isPointInPath(rp.path, localX, localY)) {
+      if (this.hitCtx.isPointInPath(rp.path, localX, localY)) {
         return piece.id;
       }
     }
@@ -105,7 +107,9 @@ export class InteractionHandler {
     this.canvas.setPointerCapture(e.pointerId);
     this.onInteractionStart?.();
 
-    const { x, y } = this.screenToWorld(e.clientX, e.clientY);
+    const world = this.screenToWorld(e.clientX, e.clientY);
+    if (!world) return;
+    const { x, y } = world;
     const hitId = this.hitTest(x, y);
 
     if (hitId === null) return;
@@ -130,7 +134,9 @@ export class InteractionHandler {
     if (!this.drag) return;
     e.preventDefault();
 
-    const { x, y } = this.screenToWorld(e.clientX, e.clientY);
+    const world = this.screenToWorld(e.clientX, e.clientY);
+    if (!world) return;
+    const { x, y } = world;
     const dx = x - this.drag.offsetX - this.pieces[this.drag.pieceId].x;
     const dy = y - this.drag.offsetY - this.pieces[this.drag.pieceId].y;
 
