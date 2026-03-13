@@ -50,7 +50,7 @@ src/
 │   │   └── AdSlot.tsx          # Google AdSense wrapper with placeholder fallback
 │   └── PuzzleCard.tsx          # Thumbnail card with difficulty badge
 ├── data/
-│   ├── puzzles.ts          # 55 curated puzzles across 8 categories
+│   ├── puzzles.ts          # 500 curated puzzles across 8 categories
 │   ├── categories.ts       # 8 categories with SEO metadata
 │   └── blog.ts             # 5 SEO blog posts (markdown content)
 ├── lib/
@@ -136,27 +136,42 @@ Complete UI redesign:
 
 The visual overhaul introduced a coordinate bug in `PieceRenderer.ts`. The `drawImage` destination coordinates subtracted `totalPad` twice (once via `ctx.translate`, once explicitly), shifting the image too far up-left. The beige base fill showed through at every tab/blank junction as crescent-shaped white spots. Fixed by removing the erroneous `- totalPad` from `destX` and `destY`.
 
+### Commit 5: `094e155` -- Streak Fix + Blog Index + Puzzle Scale (Phase 1 & 2)
+
+Three high-impact items from the growth plan implemented in one session:
+
+**fix-streaks (Phase 1):** Wired `updateStreak()` and `markDailyCompleted()` into `PuzzleCanvas.tsx`'s `onComplete` callback. Streak tracking now fires whenever the completed `puzzleId` starts with `"daily-"`, passing elapsed seconds and piece count to storage.
+
+**blog-index (Phase 2):** Created `src/app/blog/page.tsx` — a fully SEO-optimised blog index page listing all 5 existing blog articles sorted by publish date, with rich Open Graph metadata, breadcrumb nav, and a daily puzzle CTA.
+
+**scale-puzzles (Phase 2):** Expanded `src/data/puzzles.ts` from 55 to **500 unique puzzle entries** across all 8 categories (animals ×65, nature ×65, landscapes ×65, art ×65, food ×66, travel ×65, holidays ×55, abstract ×55). Each entry has a unique SEO-friendly slug, real Unsplash photo ID, title, description, difficulty rating, and tags. This gives the sitemap 500 indexable `/puzzles/[category]/[slug]` pages.
+
+### Commit 6: `4fe414b` -- Scale puzzles to 500 entries
+
+Finalised the puzzle library at exactly 500 entries with no duplicate slugs or IDs.
+
 ---
 
-## Current State (as of commit `bc8293d`)
+## Current State (as of commit `4fe414b`)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
 - Drag-and-drop with snap-to-position and group merging
 - Dark canvas background with polished piece rendering
 - Daily puzzle with deterministic seed
+- **Streak tracking** — `updateStreak()` and `markDailyCompleted()` are called on daily puzzle completion
 - Custom puzzle creation from uploaded photos
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
-- 55 puzzles across 8 categories
-- 5 SEO blog posts
-- Full sitemap, robots.txt, schema markup
+- **500 puzzles** across 8 categories (animals, nature, landscapes, art, food, travel, holidays, abstract)
+- **Blog index page** at `/blog` listing all 5 articles with SEO metadata
+- 5 SEO blog post articles
+- Full sitemap (now covers 500+ puzzle pages), robots.txt, schema markup
 - Mobile-responsive layout
 - AdSense slot placeholders ready for activation
 
 ### What does NOT work
-- **Streaks**: `updateStreak()` and `markDailyCompleted()` exist in `storage.ts` but are never called
 - **Email capture**: Form submits to nowhere (no backend integration)
 - **Custom puzzle sharing**: Uses `blob:` URLs that break on refresh/share
 - **Analytics**: Zero tracking -- no GA4 or any analytics
