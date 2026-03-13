@@ -410,6 +410,30 @@ Real jigsaw solvers always start with edge pieces. This feature lets them do tha
 
 ---
 
+### Commit 23: Difficulty Modifiers + Piece Rotation (Engagement Plan Phase 3B)
+
+**Engagement Plan Phase 3B — `difficulty-rotation`:**
+
+Three difficulty tiers added to the "New Game" dropdown. Difficulty persists in `GameState` and participates in save-state matching (changing difficulty always starts a fresh puzzle).
+
+**`src/engine/types.ts`** — New `PieceRotation` type (`0 | 90 | 180 | 270`), new `Difficulty` type (`"easy" | "medium" | "hard"`), `DIFFICULTY_LABELS` constant with icon + description per level. `PieceState` gains `rotation: PieceRotation` field (backward-compat: missing field defaults to `0`). `GameState` gains `difficulty: Difficulty` field.
+
+**`src/engine/PuzzleEngine.ts`** — `init()` accepts new `difficulty` param. `initFreshState(gameMode, difficulty)` handles three scatter strategies:
+- **Easy** — Near-correct scatter (±0.75× piece size), then all flat-edge pieces (corners + edges) are pre-snapped to their correct board positions at `rotation: 0`.
+- **Medium** — Unchanged (existing random scatter, no rotation).
+- **Hard** — Existing random scatter, each piece assigned a random rotation from `{0, 90, 180, 270}`.
+`draw()` applies `ctx.rotate(rotation × π/180)` centered on the piece's world-center for any piece with `rotation !== 0`; lift scale and rotation transforms are correctly composed via `translate → rotate → scale → translate-back`. Save-state reload requires both `gameMode` and `difficulty` to match. Backward-compat loop ensures all restored pieces have a `rotation` field. `getDifficulty()` accessor added.
+
+**`src/engine/InteractionHandler.ts`** — Constructor accepts `difficulty` param. `hitTest()` inverse-rotates the world point into the piece's unrotated local coordinate space before `isPointInPath`, giving accurate click detection on rotated pieces. `rotatePiece(pieceId)` cycles the rotation of all pieces in the group by +90° (`PieceRotation` values: 0 → 90 → 180 → 270 → 0). Two rotate triggers: **right-click** (`contextmenu` event, desktop) and **double-tap** (second `pointerdown` on the same piece within 300 ms, mobile — `pointerType === "touch"` only). `trySnap()` guards: in Hard mode, a piece only snaps when `rotation === 0`. New `onPieceRotate` callback fires before rotation mutates state so `PuzzleEngine` can push an undo snapshot.
+
+**`src/components/puzzle/PuzzleControls.tsx`** — `PuzzleControlsProps` gains `difficulty: Difficulty` and updated `onNewGame` signature `(mode, pieces, difficulty)`. New "Difficulty" section in the "New Game" popover (between Mode and Pieces): three amber-accented radio-style buttons (🌱 Easy / 🧩 Medium / 🔥 Hard). A contextual tip appears below the difficulty section when Hard is selected, explaining the rotate mechanic. The New Game trigger button shows the current difficulty icon next to the mode icon on ≥sm screens.
+
+**`src/components/puzzle/PuzzleCanvas.tsx`** — `difficulty` state added (default `"medium"`); `initEngine`, `handleStartNewGame`, `handlePlayAgain`, and `handleTryHarder` all thread `difficulty` through. The `useEffect` reinit watcher now includes `difficulty` so switching difficulty in the dropdown always starts a new game.
+
+**Build result:** 128 static pages, exit 0.
+
+---
+
 ### Commit 22: Game Modes — Classic, Zen, Timed Challenge, Mystery (Engagement Plan Phase 3A)
 
 **Engagement Plan Phase 3A — `game-modes`:**
@@ -443,9 +467,10 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 22)
+## Current State (as of commit 23)
 
 ### What works
+- **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
 - **Game modes** — Classic, Zen, Timed Challenge, Mystery via "New Game" dropdown; mode-aware timer (countdown for Timed, hidden for Zen), scatter (near-position for Zen), scoring (suppressed in Zen), preview lock (Mystery), time-up modal
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
 - Drag-and-drop with snap-to-position and group merging
@@ -498,7 +523,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 Three detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: difficulty-rotation, stats-achievements, settings-panel
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: stats-achievements, settings-panel
 - `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked), cloudinary-images
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 

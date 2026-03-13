@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { PIECE_PRESETS, GameMode, GAME_MODE_LABELS } from "@/engine/types";
+import { PIECE_PRESETS, GameMode, GAME_MODE_LABELS, Difficulty, DIFFICULTY_LABELS } from "@/engine/types";
 
 const PIECE_OPTIONS = Object.keys(PIECE_PRESETS).map(Number).sort((a, b) => a - b);
 
@@ -12,6 +12,7 @@ interface PuzzleControlsProps {
   progress: { snapped: number; total: number };
   pieceCount: number;
   gameMode: GameMode;
+  difficulty: Difficulty;
   showPreview: boolean;
   isFullscreen: boolean;
   isMuted: boolean;
@@ -19,7 +20,7 @@ interface PuzzleControlsProps {
   canHint: boolean;
   hintCooldownLeft: number;
   canUndo: boolean;
-  onNewGame: (mode: GameMode, pieces: number) => void;
+  onNewGame: (mode: GameMode, pieces: number, difficulty: Difficulty) => void;
   onTogglePreview: () => void;
   onToggleFullscreen: () => void;
   onToggleMute: () => void;
@@ -41,6 +42,7 @@ export default function PuzzleControls({
   progress,
   pieceCount,
   gameMode,
+  difficulty,
   showPreview,
   isFullscreen,
   isMuted,
@@ -65,6 +67,7 @@ export default function PuzzleControls({
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<GameMode>(gameMode);
   const [pendingPieces, setPendingPieces] = useState(pieceCount);
+  const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty>(difficulty);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Sync pending values to current when menu opens
@@ -72,8 +75,9 @@ export default function PuzzleControls({
     if (menuOpen) {
       setPendingMode(gameMode);
       setPendingPieces(pieceCount);
+      setPendingDifficulty(difficulty);
     }
-  }, [menuOpen, gameMode, pieceCount]);
+  }, [menuOpen, gameMode, pieceCount, difficulty]);
 
   // Close on outside click
   useEffect(() => {
@@ -89,7 +93,7 @@ export default function PuzzleControls({
 
   const handleStartNewGame = () => {
     setMenuOpen(false);
-    onNewGame(pendingMode, pendingPieces);
+    onNewGame(pendingMode, pendingPieces, pendingDifficulty);
   };
 
   // Timer display logic
@@ -236,6 +240,7 @@ export default function PuzzleControls({
           >
             <span>{modeInfo.icon}</span>
             <span className="hidden sm:inline">{modeInfo.label} ·</span>
+            <span className="hidden sm:inline">{DIFFICULTY_LABELS[difficulty].icon} ·</span>
             <span className="tabular-nums">{pieceCount}pc</span>
             <svg className={`w-3 h-3 text-slate-400 transition-transform ${menuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -275,6 +280,45 @@ export default function PuzzleControls({
                   );
                 })}
               </div>
+
+              {/* Difficulty section */}
+              <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-2">Difficulty</p>
+              <div className="space-y-1 mb-3">
+                {(["easy", "medium", "hard"] as Difficulty[]).map((d) => {
+                  const info = DIFFICULTY_LABELS[d];
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => setPendingDifficulty(d)}
+                      className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-2 ${
+                        pendingDifficulty === d
+                          ? "bg-amber-50 border border-amber-300"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                    >
+                      <span className="text-base">{info.icon}</span>
+                      <span>
+                        <span className={`block text-sm font-semibold ${pendingDifficulty === d ? "text-amber-700" : "text-slate-700"}`}>
+                          {info.label}
+                        </span>
+                        <span className="block text-[11px] text-slate-400 leading-tight">{info.desc}</span>
+                      </span>
+                      {pendingDifficulty === d && (
+                        <svg className="w-4 h-4 text-amber-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Hard mode tip */}
+              {pendingDifficulty === "hard" && (
+                <p className="text-[10px] text-slate-400 bg-slate-50 rounded-lg px-2.5 py-1.5 mb-2 leading-tight">
+                  Right-click (desktop) or double-tap (mobile) a piece to rotate it 90°. Pieces only snap when correctly oriented.
+                </p>
+              )}
 
               {/* Pieces section */}
               <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-2">Pieces</p>

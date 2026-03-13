@@ -4,6 +4,8 @@ import {
   PuzzleConfig,
   GameState,
   GameMode,
+  Difficulty,
+  PieceRotation,
   PIECE_PRESETS,
   TIMED_LIMITS,
 } from "./types";
@@ -41,9 +43,11 @@ export class PuzzleEngine {
     trayOpen: false,
     gameMode: "classic",
     timedSecondsLeft: 0,
+    difficulty: "medium",
   };
   private interaction: InteractionHandler | null = null;
   private gameMode: GameMode = "classic";
+  private difficulty: Difficulty = "medium";
   private pieceCount: number = 48;
   private animFrameId: number = 0;
   private timerInterval: number = 0;
@@ -93,10 +97,12 @@ export class PuzzleEngine {
     pieceCount: number,
     puzzleId: string,
     seed?: number,
-    gameMode: GameMode = "classic"
+    gameMode: GameMode = "classic",
+    difficulty: Difficulty = "medium"
   ) {
     this.puzzleId = puzzleId;
     this.gameMode = gameMode;
+    this.difficulty = difficulty;
     this.pieceCount = pieceCount;
     this.image = await this.loadImage(imageUrl);
 
@@ -119,22 +125,30 @@ export class PuzzleEngine {
     this.rendered = renderAllPieces(this.definitions, this.image, this.config);
 
     const saved = this.loadState();
-    // Only restore a saved state when it matches the requested game mode
-    const savedMatchesMode = saved && (saved.gameMode ?? "classic") === gameMode;
+    // Only restore a saved state when it matches the requested game mode AND difficulty
+    const savedMatchesMode =
+      saved &&
+      (saved.gameMode ?? "classic") === gameMode &&
+      (saved.difficulty ?? "medium") === difficulty;
     if (savedMatchesMode && saved) {
       this.state = saved;
       // Reset startedAt so the timer re-arms on next interaction.
       this.state.startedAt = null;
     } else {
-      this.initFreshState(gameMode);
+      this.initFreshState(gameMode, difficulty);
     }
     // Ensure backward-compatible saves have all fields
     if (this.state.score === undefined) this.state.score = 0;
     if (this.state.lastSnapAt === undefined) this.state.lastSnapAt = null;
     if (this.state.trayOpen === undefined) this.state.trayOpen = false;
     if (!this.state.gameMode) this.state.gameMode = "classic";
+    if (!this.state.difficulty) this.state.difficulty = "medium";
     if (this.state.timedSecondsLeft === undefined) {
       this.state.timedSecondsLeft = gameMode === "timed" ? (TIMED_LIMITS[pieceCount] ?? 480) : 0;
+    }
+    // Ensure all pieces have a rotation field (backward compat)
+    for (const p of this.state.pieces) {
+      if ((p.rotation as number | undefined) === undefined) p.rotation = 0;
     }
 
     // Mystery mode: never show preview
@@ -169,7 +183,7 @@ export class PuzzleEngine {
     });
   }
 
-  private initFreshState(gameMode: GameMode = "classic") {
+  private initFreshState(gameMode: GameMode = "classic", difficulty: Difficulty = "medium") {
     const { imageWidth, imageHeight, tabSize, pieceWidth, pieceHeight } = this.config;
 
     const timedSecondsLeft =
@@ -177,9 +191,9 @@ export class PuzzleEngine {
 
     let pieces: PieceState[];
 
-    if (gameMode === "zen") {
-      // Zen: pieces scattered near their correct position (roughly in the right region)
-      const spread = Math.min(pieceWidth, pieceHeight) * 1.5;
+    if (gameMode === "zen" || difficulty === "easy") {
+      // Zen / Easy: pieces scattered near their correct position
+      const spread = Math.min(pieceWidth, pieceHeight) * (difficulty === "easy" ? 0.75 : 1.5);
       pieces = this.definitions.map((def, i) => ({
         id: def.id,
         x: def.correctX + (Math.random() - 0.5) * spread,
@@ -187,9 +201,27 @@ export class PuzzleEngine {
         snapped: false,
         groupId: i,
         zIndex: i,
+        rotation: 0 as PieceRotation,
       }));
+
+      // Easy: pre-snap all edge pieces (any flat edge) to their correct position
+      if (difficulty === "easy") {
+        for (const piece of pieces) {
+          const def = this.definitions[piece.id];
+          const isEdge =
+            def.edges.top.type === "flat" ||
+            def.edges.right.type === "flat" ||
+            def.edges.bottom.type === "flat" ||
+            def.edges.left.type === "flat";
+          if (isEdge) {
+            piece.x = def.correctX;
+            piece.y = def.correctY;
+            piece.snapped = true;
+          }
+        }
+      }
     } else {
-      // Classic / Timed / Mystery: random scatter in zones outside the board
+      // Classic / Timed / Mystery / Hard: random scatter in zones outside the board
       const boardRight = imageWidth + tabSize;
       const boardBottom = imageHeight + tabSize;
       const margin = tabSize * 2;
@@ -215,6 +247,8 @@ export class PuzzleEngine {
         },
       ];
 
+      const rotations: PieceRotation[] = [0, 90, 180, 270];
+
       pieces = this.definitions.map((def, i) => {
         const zone = zones[i % zones.length];
         return {
@@ -224,6 +258,10 @@ export class PuzzleEngine {
           snapped: false,
           groupId: i,
           zIndex: i,
+          // Hard: assign a random rotation; other modes start at 0
+          rotation: (difficulty === "hard"
+            ? rotations[Math.floor(Math.random() * 4)]
+            : 0) as PieceRotation,
         };
       });
     }
@@ -239,6 +277,7 @@ export class PuzzleEngine {
       trayOpen: false,
       gameMode,
       timedSecondsLeft,
+      difficulty,
     };
   }
 
@@ -322,7 +361,8 @@ export class PuzzleEngine {
       this.state.pieces,
       this.definitions,
       this.rendered,
-      this.config
+      this.config,
+      this.difficulty
     );
 
     this.interaction.setTransform(this.scale, this.panX, this.panY);
@@ -336,6 +376,11 @@ export class PuzzleEngine {
 
     this.interaction.onDragStart = () => {
       this.pushHistory();
+    };
+
+    this.interaction.onPieceRotate = () => {
+      this.pushHistory();
+      this.saveState();
     };
 
     this.interaction.onPiecePickup = () => {
@@ -491,18 +536,26 @@ export class PuzzleEngine {
       const drawY = py - rp.offsetY;
 
       const isLifted = liftedGroupId !== null && piece.groupId === liftedGroupId;
+      const rotation = piece.rotation ?? 0;
 
-      if (isLifted) {
+      if (isLifted || rotation !== 0) {
         const def = this.definitions[piece.id];
         const cx = px + (def?.width ?? 0) / 2;
         const cy = py + (def?.height ?? 0) / 2;
         ctx.save();
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-        ctx.shadowBlur = 20 / this.scale;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 6 / this.scale;
+        if (isLifted) {
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 20 / this.scale;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 6 / this.scale;
+        }
         ctx.translate(cx, cy);
-        ctx.scale(1.05, 1.05);
+        if (rotation !== 0) {
+          ctx.rotate((rotation * Math.PI) / 180);
+        }
+        if (isLifted) {
+          ctx.scale(1.05, 1.05);
+        }
         ctx.translate(-cx, -cy);
         ctx.drawImage(rp.canvas as HTMLCanvasElement, drawX, drawY);
         ctx.restore();
@@ -791,6 +844,10 @@ export class PuzzleEngine {
 
   getGameMode(): GameMode {
     return this.gameMode;
+  }
+
+  getDifficulty(): Difficulty {
+    return this.difficulty;
   }
 
   resize() {

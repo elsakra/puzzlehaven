@@ -32,6 +32,8 @@ export interface PieceDefinition {
   height: number;
 }
 
+export type PieceRotation = 0 | 90 | 180 | 270;
+
 export interface PieceState {
   id: number;
   x: number;
@@ -39,7 +41,16 @@ export interface PieceState {
   snapped: boolean;
   groupId: number;
   zIndex: number;
+  rotation: PieceRotation;
 }
+
+export type Difficulty = "easy" | "medium" | "hard";
+
+export const DIFFICULTY_LABELS: Record<Difficulty, { label: string; icon: string; desc: string }> = {
+  easy:   { label: "Easy",   icon: "🌱", desc: "Edge pieces pre-placed" },
+  medium: { label: "Medium", icon: "🧩", desc: "Standard scatter" },
+  hard:   { label: "Hard",   icon: "🔥", desc: "Pieces start rotated" },
+};
 
 export interface PuzzleConfig {
   rows: number;
@@ -78,6 +89,7 @@ export interface GameState {
   trayOpen: boolean;
   gameMode: GameMode;
   timedSecondsLeft: number;
+  difficulty: Difficulty;
 }
 
 export const PIECE_PRESETS: Record<number, { rows: number; cols: number }> = {

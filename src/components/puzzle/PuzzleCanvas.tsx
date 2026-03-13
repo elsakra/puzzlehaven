@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
-import { PIECE_PRESETS, GameMode } from "@/engine/types";
+import { PIECE_PRESETS, GameMode, Difficulty } from "@/engine/types";
 import { updateStreak, markDailyCompleted } from "@/lib/storage";
 import { analytics } from "@/lib/gtag";
 import { puzzles } from "@/data/puzzles";
@@ -45,6 +45,7 @@ export default function PuzzleCanvas({
   const [completed, setCompleted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>("classic");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [showPreview, setShowPreview] = useState(false);
   const [pieceCount, setPieceCount] = useState(initialPieceCount);
   const [loading, setLoading] = useState(true);
@@ -67,7 +68,7 @@ export default function PuzzleCanvas({
   }, []);
 
   const initEngine = useCallback(
-    async (count: number, mode: GameMode) => {
+    async (count: number, mode: GameMode, diff: Difficulty) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -128,7 +129,7 @@ export default function PuzzleCanvas({
       setIsMuted(engine.isMuted());
 
       try {
-        await engine.init(imageUrl, count, puzzleId, seed, mode);
+        await engine.init(imageUrl, count, puzzleId, seed, mode, diff);
         engineRef.current = engine;
         analytics.puzzleStart(puzzleId, count, puzzleCategory);
         setHintState(engine.canHint());
@@ -142,13 +143,13 @@ export default function PuzzleCanvas({
   );
 
   useEffect(() => {
-    initEngine(pieceCount, gameMode);
+    initEngine(pieceCount, gameMode, difficulty);
     return () => {
       engineRef.current?.destroy();
     };
-    // gameMode intentionally included — reinit when mode changes via handleStartNewGame
+    // gameMode and difficulty intentionally included — reinit when changed via handleStartNewGame
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pieceCount, gameMode, initEngine]);
+  }, [pieceCount, gameMode, difficulty, initEngine]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -282,13 +283,14 @@ export default function PuzzleCanvas({
   }, [completed, progress.snapped, progress.total, puzzleId]);
 
   const handleStartNewGame = useCallback(
-    (newMode: GameMode, newCount: number) => {
+    (newMode: GameMode, newCount: number, newDifficulty: Difficulty) => {
       if (newCount !== pieceCount) {
         analytics.pieceCountChange(puzzleId, pieceCount, newCount);
       }
-      // Batch both state updates — React will re-init once via useEffect
+      // Batch all three state updates — React will re-init once via useEffect
       setGameMode(newMode);
       setPieceCount(newCount);
+      setDifficulty(newDifficulty);
     },
     [puzzleId, pieceCount]
   );
@@ -296,8 +298,8 @@ export default function PuzzleCanvas({
   const handlePlayAgain = useCallback(() => {
     setCompleted(false);
     setTimedOut(false);
-    initEngine(pieceCount, gameMode);
-  }, [pieceCount, gameMode, initEngine]);
+    initEngine(pieceCount, gameMode, difficulty);
+  }, [pieceCount, gameMode, difficulty, initEngine]);
 
   // Navigate to the next puzzle in the same category (wraps around)
   const handleNextPuzzle = useCallback((): (() => void) | null => {
@@ -323,9 +325,9 @@ export default function PuzzleCanvas({
     if (idx === -1 || idx >= PIECE_TIERS.length - 1) return null;
     const nextTier = PIECE_TIERS[idx + 1];
     return () => {
-      handleStartNewGame(gameMode, nextTier);
+      handleStartNewGame(gameMode, nextTier, difficulty);
     };
-  }, [pieceCount, gameMode, handleStartNewGame]);
+  }, [pieceCount, gameMode, difficulty, handleStartNewGame]);
 
   return (
     <div ref={containerRef} className="relative w-full flex flex-col gap-3">
@@ -336,6 +338,7 @@ export default function PuzzleCanvas({
         progress={progress}
         pieceCount={pieceCount}
         gameMode={gameMode}
+        difficulty={difficulty}
         showPreview={showPreview}
         isFullscreen={isFullscreen}
         isMuted={isMuted}

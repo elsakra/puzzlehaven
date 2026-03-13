@@ -1,4 +1,4 @@
-import { PieceState, PieceDefinition, PuzzleConfig } from "./types";
+import { PieceState, PieceDefinition, PuzzleConfig, Difficulty, PieceRotation } from "./types";
 import { RenderedPiece } from "./PieceRenderer";
 import type { SnapAnimData } from "./AnimationManager";
 
@@ -22,6 +22,7 @@ export class InteractionHandler {
   private definitions: PieceDefinition[];
   private rendered: RenderedPiece[];
   private config: PuzzleConfig;
+  private difficulty: Difficulty;
   private drag: DragState | null = null;
   private scale: number = 1;
   private panX: number = 0;
@@ -37,11 +38,16 @@ export class InteractionHandler {
   private panLastX: number = 0;
   private panLastY: number = 0;
 
+  // Double-tap detection for mobile rotation
+  private lastTapTime: number = 0;
+  private lastTapId: number | null = null;
+
   onPieceMove: (() => void) | null = null;
   onPieceSnap: ((pieceId: number) => void) | null = null;
   onGroupMerge: (() => void) | null = null;
   onPiecePickup: (() => void) | null = null;
   onDragStart: (() => void) | null = null;
+  onPieceRotate: (() => void) | null = null;
   onInteractionStart: (() => void) | null = null;
   onTransformChange: ((scale: number, panX: number, panY: number) => void) | null = null;
   onSnapAnimate: ((data: SnapAnimData[]) => void) | null = null;
@@ -54,13 +60,15 @@ export class InteractionHandler {
     pieces: PieceState[],
     definitions: PieceDefinition[],
     rendered: RenderedPiece[],
-    config: PuzzleConfig
+    config: PuzzleConfig,
+    difficulty: Difficulty = "medium"
   ) {
     this.canvas = canvas;
     this.pieces = pieces;
     this.definitions = definitions;
     this.rendered = rendered;
     this.config = config;
+    this.difficulty = difficulty;
 
     const hitCanvas = document.createElement("canvas");
     hitCanvas.width = 1;
@@ -86,6 +94,7 @@ export class InteractionHandler {
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerCancel);
     this.canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    this.canvas.addEventListener("contextmenu", this.onContextMenu);
     this.canvas.style.touchAction = "none";
   }
 
@@ -95,6 +104,7 @@ export class InteractionHandler {
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
     this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("contextmenu", this.onContextMenu);
   }
 
   private clientToCanvas(clientX: number, clientY: number): { x: number; y: number } | null {
@@ -149,8 +159,23 @@ export class InteractionHandler {
 
     for (const piece of sorted) {
       const rp = this.rendered[piece.id];
-      const localX = worldX - piece.x;
-      const localY = worldY - piece.y;
+      const def = this.definitions[piece.id];
+      const rotation = piece.rotation ?? 0;
+
+      let localX = worldX - piece.x;
+      let localY = worldY - piece.y;
+
+      if (rotation !== 0) {
+        // Inverse-rotate the world point into the piece's unrotated local coordinate space
+        const cx = def.width / 2;
+        const cy = def.height / 2;
+        const dx = localX - cx;
+        const dy = localY - cy;
+        const angle = -(rotation * Math.PI) / 180;
+        localX = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+        localY = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+      }
+
       if (this.hitCtx.isPointInPath(rp.path, localX, localY)) {
         return piece.id;
       }
@@ -192,6 +217,23 @@ export class InteractionHandler {
     const hitId = this.hitTest(world.x, world.y);
 
     if (hitId !== null) {
+      // Double-tap on touch devices rotates the piece instead of dragging
+      const now = Date.now();
+      if (
+        e.pointerType === "touch" &&
+        now - this.lastTapTime < 300 &&
+        this.lastTapId === hitId
+      ) {
+        this.lastTapTime = 0;
+        this.lastTapId = null;
+        this.onPieceRotate?.();
+        this.rotatePiece(hitId);
+        this.mode = "idle";
+        return;
+      }
+      this.lastTapTime = now;
+      this.lastTapId = hitId;
+
       const piece = this.pieces[hitId];
       const groupPieces = this.getGroupPieces(piece.groupId);
       const maxZ = Math.max(...this.pieces.map((p) => p.zIndex));
@@ -322,9 +364,31 @@ export class InteractionHandler {
     this.zoomAt(canvasPos.x, canvasPos.y, factor);
   };
 
+  private rotatePiece(pieceId: number) {
+    const piece = this.pieces[pieceId];
+    const groupPieces = this.getGroupPieces(piece.groupId);
+    for (const gp of groupPieces) {
+      gp.rotation = (((gp.rotation ?? 0) + 90) % 360) as PieceRotation;
+    }
+  }
+
+  private onContextMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    const world = this.screenToWorld(e.clientX, e.clientY);
+    if (!world) return;
+    const hitId = this.hitTest(world.x, world.y);
+    if (hitId !== null) {
+      this.onPieceRotate?.();
+      this.rotatePiece(hitId);
+    }
+  };
+
   private trySnap(pieceId: number) {
     const piece = this.pieces[pieceId];
     if (piece.snapped) return;
+
+    // Hard mode: piece must be at correct rotation (0°) to snap
+    if (this.difficulty === "hard" && (piece.rotation ?? 0) !== 0) return;
 
     const def = this.definitions[pieceId];
     const dx = Math.abs(piece.x - def.correctX);
