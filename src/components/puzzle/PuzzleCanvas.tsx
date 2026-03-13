@@ -302,6 +302,8 @@ export default function PuzzleCanvas({
           score={score}
           pieceCount={pieceCount}
           puzzleTitle={puzzleTitle}
+          puzzleUrl={typeof window !== "undefined" ? window.location.href : ""}
+          imageUrl={imageUrl}
           onPlayAgain={handlePlayAgain}
           onNextPuzzle={handleNextPuzzle()}
           onRandomPuzzle={handleRandomPuzzle}

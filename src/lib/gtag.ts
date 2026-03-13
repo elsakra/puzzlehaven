@@ -67,4 +67,13 @@ export const analytics = {
   customPuzzleCreated() {
     fireEvent("custom_puzzle_created");
   },
+
+  /** Fired on beforeunload when a user leaves mid-puzzle without completing it. */
+  puzzleAbandoned(puzzleId: string, snappedPieces: number, totalPieces: number) {
+    fireEvent("puzzle_abandoned", {
+      puzzle_id: puzzleId,
+      snapped_pieces: snappedPieces,
+      total_pieces: totalPieces,
+    });
+  },
 };
