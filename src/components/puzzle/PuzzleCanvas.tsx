@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
-import { PIECE_PRESETS } from "@/engine/types";
+import { PIECE_PRESETS, GameMode } from "@/engine/types";
 import { updateStreak, markDailyCompleted } from "@/lib/storage";
 import { analytics } from "@/lib/gtag";
 import { puzzles } from "@/data/puzzles";
@@ -43,6 +43,8 @@ export default function PuzzleCanvas({
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState({ snapped: 0, total: 0 });
   const [completed, setCompleted] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>("classic");
   const [showPreview, setShowPreview] = useState(false);
   const [pieceCount, setPieceCount] = useState(initialPieceCount);
   const [loading, setLoading] = useState(true);
@@ -65,13 +67,14 @@ export default function PuzzleCanvas({
   }, []);
 
   const initEngine = useCallback(
-    async (count: number) => {
+    async (count: number, mode: GameMode) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       engineRef.current?.destroy();
       setLoading(true);
       setCompleted(false);
+      setTimedOut(false);
       setTimer(0);
       setMoves(0);
       setProgress({ snapped: 0, total: 0 });
@@ -80,14 +83,15 @@ export default function PuzzleCanvas({
       setCanUndo(false);
       setHintState({ available: false, cooldownLeft: 0 });
       setShowProgressToast(false);
+      setShowPreview(false);
       progressToastShownRef.current = false;
 
       sizeCanvas();
 
       const engine = new PuzzleEngine(canvas, {
         onTimerUpdate: setTimer,
-        onMoveCountUpdate: (count) => {
-          setMoves(count);
+        onMoveCountUpdate: (mvCount) => {
+          setMoves(mvCount);
           setCanUndo(engineRef.current?.canUndo() ?? false);
         },
         onComplete: (secs, mvs) => {
@@ -101,6 +105,12 @@ export default function PuzzleCanvas({
             markDailyCompleted(today, secs, count);
             analytics.dailyCompleted(today, secs, count);
           }
+        },
+        onTimedOut: (secs, mvs) => {
+          setTimedOut(true);
+          setCompleted(true);
+          setTimer(secs);
+          setMoves(mvs);
         },
         onProgress: (snapped, total) => {
           setProgress({ snapped, total });
@@ -118,7 +128,7 @@ export default function PuzzleCanvas({
       setIsMuted(engine.isMuted());
 
       try {
-        await engine.init(imageUrl, count, puzzleId, seed);
+        await engine.init(imageUrl, count, puzzleId, seed, mode);
         engineRef.current = engine;
         analytics.puzzleStart(puzzleId, count, puzzleCategory);
         setHintState(engine.canHint());
@@ -132,11 +142,13 @@ export default function PuzzleCanvas({
   );
 
   useEffect(() => {
-    initEngine(pieceCount);
+    initEngine(pieceCount, gameMode);
     return () => {
       engineRef.current?.destroy();
     };
-  }, [pieceCount, initEngine]);
+    // gameMode intentionally included — reinit when mode changes via handleStartNewGame
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pieceCount, gameMode, initEngine]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -159,12 +171,13 @@ export default function PuzzleCanvas({
   }, []);
 
   const togglePreview = useCallback(() => {
+    if (gameMode === "mystery") return;
     setShowPreview((prev) => {
       const next = !prev;
       engineRef.current?.setPreview(next);
       return next;
     });
-  }, []);
+  }, [gameMode]);
 
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
@@ -268,18 +281,23 @@ export default function PuzzleCanvas({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [completed, progress.snapped, progress.total, puzzleId]);
 
-  const handlePieceCountChange = useCallback(
-    (count: number) => {
-      analytics.pieceCountChange(puzzleId, pieceCount, count);
-      setPieceCount(count);
+  const handleStartNewGame = useCallback(
+    (newMode: GameMode, newCount: number) => {
+      if (newCount !== pieceCount) {
+        analytics.pieceCountChange(puzzleId, pieceCount, newCount);
+      }
+      // Batch both state updates — React will re-init once via useEffect
+      setGameMode(newMode);
+      setPieceCount(newCount);
     },
     [puzzleId, pieceCount]
   );
 
   const handlePlayAgain = useCallback(() => {
     setCompleted(false);
-    initEngine(pieceCount);
-  }, [pieceCount, initEngine]);
+    setTimedOut(false);
+    initEngine(pieceCount, gameMode);
+  }, [pieceCount, gameMode, initEngine]);
 
   // Navigate to the next puzzle in the same category (wraps around)
   const handleNextPuzzle = useCallback((): (() => void) | null => {
@@ -305,9 +323,9 @@ export default function PuzzleCanvas({
     if (idx === -1 || idx >= PIECE_TIERS.length - 1) return null;
     const nextTier = PIECE_TIERS[idx + 1];
     return () => {
-      handlePieceCountChange(nextTier);
+      handleStartNewGame(gameMode, nextTier);
     };
-  }, [pieceCount, handlePieceCountChange]);
+  }, [pieceCount, gameMode, handleStartNewGame]);
 
   return (
     <div ref={containerRef} className="relative w-full flex flex-col gap-3">
@@ -317,6 +335,7 @@ export default function PuzzleCanvas({
         score={score}
         progress={progress}
         pieceCount={pieceCount}
+        gameMode={gameMode}
         showPreview={showPreview}
         isFullscreen={isFullscreen}
         isMuted={isMuted}
@@ -324,7 +343,7 @@ export default function PuzzleCanvas({
         canHint={hintState.available}
         hintCooldownLeft={hintState.cooldownLeft}
         canUndo={canUndo}
-        onPieceCountChange={handlePieceCountChange}
+        onNewGame={handleStartNewGame}
         onTogglePreview={togglePreview}
         onToggleFullscreen={toggleFullscreen}
         onToggleMute={toggleMute}
@@ -371,6 +390,8 @@ export default function PuzzleCanvas({
           moves={moves}
           score={score}
           pieceCount={pieceCount}
+          gameMode={gameMode}
+          timedOut={timedOut}
           puzzleTitle={puzzleTitle}
           puzzleUrl={typeof window !== "undefined" ? window.location.href : ""}
           imageUrl={imageUrl}

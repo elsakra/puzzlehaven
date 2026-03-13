@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback } from "react";
+import type { GameMode } from "@/engine/types";
 
 interface CompletionModalProps {
   timer: number;
   moves: number;
   score: number;
   pieceCount: number;
+  gameMode?: GameMode;
+  timedOut?: boolean;
   puzzleTitle: string;
   puzzleUrl: string;
   imageUrl: string;
@@ -34,6 +37,8 @@ export default function CompletionModal({
   moves,
   score,
   pieceCount,
+  gameMode = "classic",
+  timedOut = false,
   puzzleTitle,
   puzzleUrl,
   imageUrl,
@@ -42,9 +47,12 @@ export default function CompletionModal({
   onRandomPuzzle,
   onTryHarder,
 }: CompletionModalProps) {
-  const stars = getStars(timer, pieceCount);
+  const stars = timedOut ? 0 : getStars(timer, pieceCount);
+  const isZen = gameMode === "zen";
 
-  const shareText = `I solved "${puzzleTitle}" jigsaw puzzle!\n${formatTime(timer)} | ${pieceCount} pieces | ${"⭐".repeat(stars)}\nScore: ${score.toLocaleString()}\nCan you beat my time?\n${puzzleUrl}`;
+  const shareText = timedOut
+    ? `I ran out of time on "${puzzleTitle}" jigsaw puzzle!\n${pieceCount} pieces · ${moves} moves\nThink you can beat the clock?\n${puzzleUrl}`
+    : `I solved "${puzzleTitle}" jigsaw puzzle!\n${formatTime(timer)} | ${pieceCount} pieces | ${"⭐".repeat(stars)}\nScore: ${score.toLocaleString()}\nCan you beat my time?\n${puzzleUrl}`;
 
   const handleShare = useCallback(async () => {
     if (navigator.share) {
@@ -63,27 +71,27 @@ export default function CompletionModal({
   const handlePinterestShare = useCallback(() => {
     const url = encodeURIComponent(puzzleUrl);
     const media = encodeURIComponent(imageUrl);
-    const desc = encodeURIComponent(
-      `I just solved "${puzzleTitle}" online jigsaw puzzle! ${formatTime(timer)} · ${pieceCount} pieces · ${"⭐".repeat(stars)} Can you beat my time?`
-    );
+    const desc = timedOut
+      ? encodeURIComponent(`Can you beat the clock on "${puzzleTitle}" online jigsaw puzzle? ${pieceCount} pieces · Try now!`)
+      : encodeURIComponent(`I just solved "${puzzleTitle}" online jigsaw puzzle! ${formatTime(timer)} · ${pieceCount} pieces · ${"⭐".repeat(stars)} Can you beat my time?`);
     window.open(
       `https://pinterest.com/pin/create/button/?url=${url}&media=${media}&description=${desc}`,
       "_blank",
       "width=600,height=500"
     );
-  }, [puzzleUrl, imageUrl, puzzleTitle, timer, pieceCount, stars]);
+  }, [puzzleUrl, imageUrl, puzzleTitle, timer, pieceCount, stars, timedOut]);
 
   const handleTwitterShare = useCallback(() => {
-    const text = encodeURIComponent(
-      `I solved "${puzzleTitle}" jigsaw puzzle! ${formatTime(timer)} · ${pieceCount} pieces · ${"⭐".repeat(stars)} · Score: ${score.toLocaleString()}\n\nCan you beat my time?`
-    );
+    const text = timedOut
+      ? encodeURIComponent(`I ran out of time on "${puzzleTitle}" jigsaw puzzle! ${pieceCount} pieces · ${moves} moves\n\nThink you can beat the clock?`)
+      : encodeURIComponent(`I solved "${puzzleTitle}" jigsaw puzzle! ${formatTime(timer)} · ${pieceCount} pieces · ${"⭐".repeat(stars)} · Score: ${score.toLocaleString()}\n\nCan you beat my time?`);
     const url = encodeURIComponent(puzzleUrl);
     window.open(
       `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
       "_blank",
       "width=600,height=500"
     );
-  }, [puzzleUrl, puzzleTitle, timer, pieceCount, stars, score]);
+  }, [puzzleUrl, puzzleTitle, timer, pieceCount, stars, score, moves, timedOut]);
 
   const handleFacebookShare = useCallback(() => {
     const url = encodeURIComponent(puzzleUrl);
@@ -97,42 +105,79 @@ export default function CompletionModal({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.3s_ease-out]">
       <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl ring-1 ring-black/5">
-        {/* Stars */}
-        <div className="flex justify-center gap-2 mb-3">
-          {[1, 2, 3].map((i) => (
-            <svg
-              key={i}
-              className={`w-9 h-9 ${i <= stars ? "text-amber-400" : "text-slate-200"}`}
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-          ))}
-        </div>
-
-        <h2 className="text-2xl font-bold text-slate-800 mb-0.5">
-          Puzzle Complete!
-        </h2>
-        <p className="text-slate-400 mb-5 text-sm">{puzzleTitle}</p>
-
-        {/* Stats: 4 columns */}
-        <div className="grid grid-cols-4 gap-2 mb-5">
-          {[
-            { label: "Time", value: formatTime(timer) },
-            { label: "Score", value: score.toLocaleString() },
-            { label: "Pieces", value: pieceCount },
-            { label: "Moves", value: moves },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-slate-50 rounded-xl px-2 py-2.5">
-              <div className="text-base font-bold text-slate-800 tabular-nums leading-tight">
-                {value}
-              </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">
-                {label}
-              </div>
+        {timedOut ? (
+          /* Time's Up state */
+          <div className="mb-4">
+            <div className="text-5xl mb-2">⏱</div>
+            <h2 className="text-2xl font-bold text-red-600 mb-0.5">Time&apos;s Up!</h2>
+            <p className="text-slate-400 text-sm">{puzzleTitle}</p>
+          </div>
+        ) : isZen ? (
+          /* Zen completion */
+          <div className="mb-4">
+            <div className="text-5xl mb-2">🌿</div>
+            <h2 className="text-2xl font-bold text-emerald-700 mb-0.5">Puzzle Complete!</h2>
+            <p className="text-slate-400 text-sm">{puzzleTitle}</p>
+          </div>
+        ) : (
+          /* Classic / Timed / Mystery success */
+          <>
+            <div className="flex justify-center gap-2 mb-3">
+              {[1, 2, 3].map((i) => (
+                <svg
+                  key={i}
+                  className={`w-9 h-9 ${i <= stars ? "text-amber-400" : "text-slate-200"}`}
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              ))}
             </div>
-          ))}
+            <h2 className="text-2xl font-bold text-slate-800 mb-0.5">
+              {gameMode === "timed" ? "⏱ Challenge Complete!" : "Puzzle Complete!"}
+            </h2>
+            <p className="text-slate-400 mb-5 text-sm">{puzzleTitle}</p>
+          </>
+        )}
+
+        {/* Stats — hide score in Zen, hide time in Time's Up */}
+        <div className={`grid gap-2 mb-5 ${timedOut || isZen ? "grid-cols-2" : "grid-cols-4"}`}>
+          {timedOut ? (
+            <>
+              <div className="bg-red-50 rounded-xl px-2 py-2.5">
+                <div className="text-base font-bold text-red-700 tabular-nums leading-tight">{pieceCount}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">Pieces</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl px-2 py-2.5">
+                <div className="text-base font-bold text-slate-800 tabular-nums leading-tight">{moves}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">Moves</div>
+              </div>
+            </>
+          ) : isZen ? (
+            <>
+              <div className="bg-emerald-50 rounded-xl px-2 py-2.5">
+                <div className="text-base font-bold text-emerald-700 tabular-nums leading-tight">{formatTime(timer)}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">Time</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl px-2 py-2.5">
+                <div className="text-base font-bold text-slate-800 tabular-nums leading-tight">{moves}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">Moves</div>
+              </div>
+            </>
+          ) : (
+            [
+              { label: "Time", value: formatTime(timer) },
+              { label: "Score", value: score.toLocaleString() },
+              { label: "Pieces", value: pieceCount },
+              { label: "Moves", value: moves },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-slate-50 rounded-xl px-2 py-2.5">
+                <div className="text-base font-bold text-slate-800 tabular-nums leading-tight">{value}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wide">{label}</div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Primary action buttons — 2×2 grid */}

@@ -1,6 +1,9 @@
 "use client";
 
-import { PIECE_PRESETS } from "@/engine/types";
+import { useState, useRef, useEffect } from "react";
+import { PIECE_PRESETS, GameMode, GAME_MODE_LABELS } from "@/engine/types";
+
+const PIECE_OPTIONS = Object.keys(PIECE_PRESETS).map(Number).sort((a, b) => a - b);
 
 interface PuzzleControlsProps {
   timer: number;
@@ -8,6 +11,7 @@ interface PuzzleControlsProps {
   score: number;
   progress: { snapped: number; total: number };
   pieceCount: number;
+  gameMode: GameMode;
   showPreview: boolean;
   isFullscreen: boolean;
   isMuted: boolean;
@@ -15,7 +19,7 @@ interface PuzzleControlsProps {
   canHint: boolean;
   hintCooldownLeft: number;
   canUndo: boolean;
-  onPieceCountChange: (count: number) => void;
+  onNewGame: (mode: GameMode, pieces: number) => void;
   onTogglePreview: () => void;
   onToggleFullscreen: () => void;
   onToggleMute: () => void;
@@ -36,6 +40,7 @@ export default function PuzzleControls({
   score,
   progress,
   pieceCount,
+  gameMode,
   showPreview,
   isFullscreen,
   isMuted,
@@ -43,7 +48,7 @@ export default function PuzzleControls({
   canHint,
   hintCooldownLeft,
   canUndo,
-  onPieceCountChange,
+  onNewGame,
   onTogglePreview,
   onToggleFullscreen,
   onToggleMute,
@@ -57,17 +62,83 @@ export default function PuzzleControls({
       ? Math.round((progress.snapped / progress.total) * 100)
       : 0;
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingMode, setPendingMode] = useState<GameMode>(gameMode);
+  const [pendingPieces, setPendingPieces] = useState(pieceCount);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Sync pending values to current when menu opens
+  useEffect(() => {
+    if (menuOpen) {
+      setPendingMode(gameMode);
+      setPendingPieces(pieceCount);
+    }
+  }, [menuOpen, gameMode, pieceCount]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const handleStartNewGame = () => {
+    setMenuOpen(false);
+    onNewGame(pendingMode, pendingPieces);
+  };
+
+  // Timer display logic
+  const isTimedMode = gameMode === "timed";
+  const isZenMode = gameMode === "zen";
+  const timerLow = isTimedMode && timer <= 60;
+  const timerCritical = isTimedMode && timer <= 30;
+
+  const modeInfo = GAME_MODE_LABELS[gameMode];
+
   return (
     <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-3 px-1">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full">
-          <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-          </svg>
-          <span className="tabular-nums">{formatTime(timer)}</span>
-        </div>
+        {/* Timer — hidden in Zen, countdown display in Timed */}
+        {!isZenMode && (
+          <div
+            className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full transition-colors ${
+              timerCritical
+                ? "bg-red-100 text-red-700 border border-red-300 animate-pulse"
+                : timerLow
+                ? "bg-amber-100 text-amber-700 border border-amber-300"
+                : isTimedMode
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {isTimedMode ? (
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+              </svg>
+            )}
+            <span className="tabular-nums">{formatTime(timer)}</span>
+          </div>
+        )}
 
-        {score > 0 && (
+        {/* Zen mode indicator (replaces timer) */}
+        {isZenMode && (
+          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+            <span>🌿</span>
+            <span>Zen</span>
+          </div>
+        )}
+
+        {/* Score badge — hidden in Zen */}
+        {score > 0 && !isZenMode && (
           <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
             <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -152,17 +223,86 @@ export default function PuzzleControls({
           </svg>
         </button>
 
-        <select
-          value={pieceCount}
-          onChange={(e) => onPieceCountChange(Number(e.target.value))}
-          className="px-3 py-2 text-sm font-medium bg-white border border-slate-200 rounded-lg text-slate-700 cursor-pointer hover:border-indigo-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none min-h-[40px] transition-all"
-        >
-          {Object.keys(PIECE_PRESETS).map((k) => (
-            <option key={k} value={k}>
-              {k} pieces
-            </option>
-          ))}
-        </select>
+        {/* New Game dropdown */}
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-white border rounded-lg transition-all min-h-[40px] ${
+              menuOpen
+                ? "border-indigo-400 ring-2 ring-indigo-200 text-indigo-700"
+                : "border-slate-200 text-slate-700 hover:border-indigo-300"
+            }`}
+            title="Change game mode or piece count"
+          >
+            <span>{modeInfo.icon}</span>
+            <span className="hidden sm:inline">{modeInfo.label} ·</span>
+            <span className="tabular-nums">{pieceCount}pc</span>
+            <svg className={`w-3 h-3 text-slate-400 transition-transform ${menuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute bottom-full mb-2 right-0 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 w-60 z-50">
+              {/* Mode section */}
+              <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-2">Mode</p>
+              <div className="space-y-1 mb-3">
+                {(["classic", "zen", "timed", "mystery"] as GameMode[]).map((m) => {
+                  const info = GAME_MODE_LABELS[m];
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setPendingMode(m)}
+                      className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-2 ${
+                        pendingMode === m
+                          ? "bg-indigo-50 border border-indigo-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                    >
+                      <span className="text-base">{info.icon}</span>
+                      <span>
+                        <span className={`block text-sm font-semibold ${pendingMode === m ? "text-indigo-700" : "text-slate-700"}`}>
+                          {info.label}
+                        </span>
+                        <span className="block text-[11px] text-slate-400 leading-tight">{info.desc}</span>
+                      </span>
+                      {pendingMode === m && (
+                        <svg className="w-4 h-4 text-indigo-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Pieces section */}
+              <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-2">Pieces</p>
+              <div className="grid grid-cols-4 gap-1.5 mb-3">
+                {PIECE_OPTIONS.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPendingPieces(n)}
+                    className={`py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      pendingPieces === n
+                        ? "bg-indigo-500 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleStartNewGame}
+                className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all text-sm shadow-sm"
+              >
+                Start New Game
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Reset view — only visible when user has panned/zoomed */}
         {isViewTransformed && (
@@ -177,19 +317,28 @@ export default function PuzzleControls({
           </button>
         )}
 
-        {/* Preview toggle */}
+        {/* Preview toggle — disabled in Mystery mode */}
         <button
-          onClick={onTogglePreview}
+          onClick={gameMode !== "mystery" ? onTogglePreview : undefined}
+          disabled={gameMode === "mystery"}
           className={`p-2.5 rounded-lg border min-h-[40px] min-w-[40px] flex items-center justify-center transition-all ${
-            showPreview
+            gameMode === "mystery"
+              ? "bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed"
+              : showPreview
               ? "bg-indigo-50 border-indigo-300 text-indigo-600 shadow-sm"
               : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-500"
           }`}
-          title="Toggle preview image"
+          title={gameMode === "mystery" ? "Preview hidden in Mystery mode" : "Toggle preview image"}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            {gameMode === "mystery" ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+            ) : (
+              <>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </>
+            )}
           </svg>
         </button>
 

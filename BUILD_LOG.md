@@ -410,9 +410,43 @@ Real jigsaw solvers always start with edge pieces. This feature lets them do tha
 
 ---
 
-## Current State (as of commit 19)
+### Commit 22: Game Modes — Classic, Zen, Timed Challenge, Mystery (Engagement Plan Phase 3A)
+
+**Engagement Plan Phase 3A — `game-modes`:**
+
+Replaced the single-mode puzzle experience with a full game mode system. A new "New Game" dropdown in the controls bar lets players pick mode + piece count before starting.
+
+**`src/engine/types.ts`** — new `GameMode` type (`"classic" | "zen" | "timed" | "mystery"`), `TIMED_LIMITS` constant (24pc=3min, 48pc=8min, 96pc=15min, 150pc=30min), `GAME_MODE_LABELS` with icon + description per mode. Added `gameMode: GameMode` and `timedSecondsLeft: number` to `GameState`.
+
+**`src/engine/PuzzleEngine.ts`** — Four behavioral changes per mode:
+- **Zen scatter**: `initFreshState("zen")` places pieces within ±0.75× piece-size of their correct position instead of random zones outside the board — pieces start roughly grouped by region.
+- **Timed countdown**: `startTimer()` is now mode-aware. Zen mode: timer never starts (no-op). Timed mode: separate countdown interval decrements `timedSecondsLeft` each second, fires `onTimerUpdate(timedSecondsLeft)` (so the UI shows the countdown), and triggers `onTimedOut(elapsed, moves)` + `clearSavedState()` when it hits 0. Classic/Mystery: original count-up behavior.
+- **Scoring suppression**: `onPieceSnap` skips score computation and floating text in Zen mode.
+- **Preview lock**: `setPreview()` is a no-op when `gameMode === "mystery"`.
+- New `PuzzleCallbacks.onTimedOut?: (seconds, moves) => void` fires when countdown expires.
+- New `getGameMode()` accessor. `init()` now takes `gameMode` as 5th param. Saved state is only restored when `saved.gameMode === requested gameMode` (mode switch always starts fresh).
+
+**`src/components/puzzle/PuzzleControls.tsx`** — Complete rewrite of the bottom-right control cluster:
+- **New Game dropdown** replaces the piece count `<select>`. Button label shows current mode icon + piece count ("⏱ Timed · 96pc ▾"). Opens a 240px popover with: Mode section (4 radio-style buttons with icon + label + description), Pieces section (4-column grid of 24/48/96/150), "Start New Game" amber CTA.
+- **Timer display**: Timed mode shows amber timer badge; turns red + pulsing at ≤60 s; red + `animate-pulse` at ≤30 s. Zen mode hides the timer entirely and shows a green "🌿 Zen" pill instead.
+- **Score badge**: hidden in Zen mode.
+- **Preview button**: disabled + eye-slash icon in Mystery mode.
+
+**`src/components/puzzle/PuzzleCanvas.tsx`** — `gameMode` state (default `"classic"`). `initEngine(count, mode)` passes mode to engine, resets `timedOut` state, resets `showPreview` to false. `handleStartNewGame(mode, pieces)` batches both state updates so `useEffect([pieceCount, gameMode])` triggers exactly one re-init. `onTimedOut` callback sets `timedOut=true` + `completed=true`. `togglePreview` no-ops in Mystery. `handleTryHarder` respects current mode.
+
+**`src/components/puzzle/CompletionModal.tsx`** — Added `gameMode` + `timedOut` props. Three distinct states:
+- **Time's Up** (`timedOut=true`): ⏱ icon, red "Time's Up!" heading, 2-stat grid (Pieces + Moves), timed-out share text.
+- **Zen**: 🌿 icon, emerald heading, 2-stat grid (Time + Moves, no score).
+- **Classic/Timed/Mystery success**: unchanged star rating + 4-stat grid + "⏱ Challenge Complete!" label for Timed.
+
+**Build result:** 128 static pages, exit 0.
+
+---
+
+## Current State (as of commit 22)
 
 ### What works
+- **Game modes** — Classic, Zen, Timed Challenge, Mystery via "New Game" dropdown; mode-aware timer (countdown for Timed, hidden for Zen), scatter (near-position for Zen), scoring (suppressed in Zen), preview lock (Mystery), time-up modal
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
 - Drag-and-drop with snap-to-position and group merging
 - Dark canvas background with polished piece rendering
@@ -464,7 +498,7 @@ Real jigsaw solvers always start with edge pieces. This feature lets them do tha
 
 Three detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: game-modes, difficulty-rotation, stats-achievements, settings-panel
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: difficulty-rotation, stats-achievements, settings-panel
 - `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked), cloudinary-images
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 

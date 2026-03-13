@@ -51,6 +51,22 @@ export interface PuzzleConfig {
   imageHeight: number;
 }
 
+export type GameMode = "classic" | "zen" | "timed" | "mystery";
+
+export const TIMED_LIMITS: Record<number, number> = {
+  24: 180,
+  48: 480,
+  96: 900,
+  150: 1800,
+};
+
+export const GAME_MODE_LABELS: Record<GameMode, { label: string; icon: string; desc: string }> = {
+  classic: { label: "Classic", icon: "🧩", desc: "Timer, score, full preview" },
+  zen: { label: "Zen", icon: "🌿", desc: "No timer, relaxed scatter" },
+  timed: { label: "Timed", icon: "⏱", desc: "Race against the clock" },
+  mystery: { label: "Mystery", icon: "🔮", desc: "No preview — discover as you solve" },
+};
+
 export interface GameState {
   pieces: PieceState[];
   timerSeconds: number;
@@ -60,6 +76,8 @@ export interface GameState {
   score: number;
   lastSnapAt: number | null;
   trayOpen: boolean;
+  gameMode: GameMode;
+  timedSecondsLeft: number;
 }
 
 export const PIECE_PRESETS: Record<number, { rows: number; cols: number }> = {

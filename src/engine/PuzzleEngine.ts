@@ -3,7 +3,9 @@ import {
   PieceState,
   PuzzleConfig,
   GameState,
+  GameMode,
   PIECE_PRESETS,
+  TIMED_LIMITS,
 } from "./types";
 import { generatePieces } from "./PieceGenerator";
 import { renderAllPieces, RenderedPiece } from "./PieceRenderer";
@@ -15,6 +17,7 @@ export interface PuzzleCallbacks {
   onTimerUpdate?: (seconds: number) => void;
   onMoveCountUpdate?: (count: number) => void;
   onComplete?: (seconds: number, moves: number) => void;
+  onTimedOut?: (seconds: number, moves: number) => void;
   onProgress?: (snapped: number, total: number) => void;
   onTransformChange?: (isTransformed: boolean) => void;
   onScoreUpdate?: (score: number) => void;
@@ -36,8 +39,12 @@ export class PuzzleEngine {
     score: 0,
     lastSnapAt: null,
     trayOpen: false,
+    gameMode: "classic",
+    timedSecondsLeft: 0,
   };
   private interaction: InteractionHandler | null = null;
+  private gameMode: GameMode = "classic";
+  private pieceCount: number = 48;
   private animFrameId: number = 0;
   private timerInterval: number = 0;
   private callbacks: PuzzleCallbacks = {};
@@ -85,9 +92,12 @@ export class PuzzleEngine {
     imageUrl: string,
     pieceCount: number,
     puzzleId: string,
-    seed?: number
+    seed?: number,
+    gameMode: GameMode = "classic"
   ) {
     this.puzzleId = puzzleId;
+    this.gameMode = gameMode;
+    this.pieceCount = pieceCount;
     this.image = await this.loadImage(imageUrl);
 
     const preset = PIECE_PRESETS[pieceCount] || PIECE_PRESETS[48];
@@ -109,19 +119,26 @@ export class PuzzleEngine {
     this.rendered = renderAllPieces(this.definitions, this.image, this.config);
 
     const saved = this.loadState();
-    if (saved) {
+    // Only restore a saved state when it matches the requested game mode
+    const savedMatchesMode = saved && (saved.gameMode ?? "classic") === gameMode;
+    if (savedMatchesMode && saved) {
       this.state = saved;
       // Reset startedAt so the timer re-arms on next interaction.
-      // Without this, the timer never starts because onInteractionStart
-      // guards on `!this.state.startedAt`, which would be truthy from the save.
       this.state.startedAt = null;
     } else {
-      this.initFreshState();
+      this.initFreshState(gameMode);
     }
     // Ensure backward-compatible saves have all fields
     if (this.state.score === undefined) this.state.score = 0;
     if (this.state.lastSnapAt === undefined) this.state.lastSnapAt = null;
     if (this.state.trayOpen === undefined) this.state.trayOpen = false;
+    if (!this.state.gameMode) this.state.gameMode = "classic";
+    if (this.state.timedSecondsLeft === undefined) {
+      this.state.timedSecondsLeft = gameMode === "timed" ? (TIMED_LIMITS[pieceCount] ?? 480) : 0;
+    }
+
+    // Mystery mode: never show preview
+    if (gameMode === "mystery") this.showPreview = false;
 
     this.userScale = 1;
     this.userPanX = 0;
@@ -134,7 +151,10 @@ export class PuzzleEngine {
       this.state.pieces.filter((p) => p.snapped).length,
       this.state.pieces.length
     );
-    this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
+    // For timed mode, fire the countdown value; otherwise fire elapsed time
+    this.callbacks.onTimerUpdate?.(
+      gameMode === "timed" ? this.state.timedSecondsLeft : this.state.timerSeconds
+    );
     this.callbacks.onMoveCountUpdate?.(this.state.moveCount);
     this.callbacks.onScoreUpdate?.(this.state.score);
   }
@@ -149,36 +169,53 @@ export class PuzzleEngine {
     });
   }
 
-  private initFreshState() {
-    const { imageWidth, imageHeight, tabSize } = this.config;
+  private initFreshState(gameMode: GameMode = "classic") {
+    const { imageWidth, imageHeight, tabSize, pieceWidth, pieceHeight } = this.config;
 
-    const boardRight = imageWidth + tabSize;
-    const boardBottom = imageHeight + tabSize;
-    const margin = tabSize * 2;
+    const timedSecondsLeft =
+      gameMode === "timed" ? (TIMED_LIMITS[this.pieceCount] ?? 480) : 0;
 
-    const zones: { x: number; y: number; w: number; h: number }[] = [
-      {
-        x: boardRight + margin,
-        y: -margin,
-        w: imageWidth * 0.6,
-        h: imageHeight + margin * 2,
-      },
-      {
-        x: -margin,
-        y: boardBottom + margin,
-        w: imageWidth + margin * 2,
-        h: imageHeight * 0.4,
-      },
-      {
-        x: boardRight + margin,
-        y: boardBottom + margin * 0.5,
-        w: imageWidth * 0.4,
-        h: imageHeight * 0.4,
-      },
-    ];
+    let pieces: PieceState[];
 
-    this.state = {
-      pieces: this.definitions.map((def, i) => {
+    if (gameMode === "zen") {
+      // Zen: pieces scattered near their correct position (roughly in the right region)
+      const spread = Math.min(pieceWidth, pieceHeight) * 1.5;
+      pieces = this.definitions.map((def, i) => ({
+        id: def.id,
+        x: def.correctX + (Math.random() - 0.5) * spread,
+        y: def.correctY + (Math.random() - 0.5) * spread,
+        snapped: false,
+        groupId: i,
+        zIndex: i,
+      }));
+    } else {
+      // Classic / Timed / Mystery: random scatter in zones outside the board
+      const boardRight = imageWidth + tabSize;
+      const boardBottom = imageHeight + tabSize;
+      const margin = tabSize * 2;
+
+      const zones: { x: number; y: number; w: number; h: number }[] = [
+        {
+          x: boardRight + margin,
+          y: -margin,
+          w: imageWidth * 0.6,
+          h: imageHeight + margin * 2,
+        },
+        {
+          x: -margin,
+          y: boardBottom + margin,
+          w: imageWidth + margin * 2,
+          h: imageHeight * 0.4,
+        },
+        {
+          x: boardRight + margin,
+          y: boardBottom + margin * 0.5,
+          w: imageWidth * 0.4,
+          h: imageHeight * 0.4,
+        },
+      ];
+
+      pieces = this.definitions.map((def, i) => {
         const zone = zones[i % zones.length];
         return {
           id: def.id,
@@ -188,7 +225,11 @@ export class PuzzleEngine {
           groupId: i,
           zIndex: i,
         };
-      }),
+      });
+    }
+
+    this.state = {
+      pieces,
       timerSeconds: 0,
       moveCount: 0,
       completed: false,
@@ -196,6 +237,8 @@ export class PuzzleEngine {
       score: 0,
       lastSnapAt: null,
       trayOpen: false,
+      gameMode,
+      timedSecondsLeft,
     };
   }
 
@@ -313,21 +356,24 @@ export class PuzzleEngine {
       const snapped = this.state.pieces.filter((p) => p.snapped).length;
       this.callbacks.onProgress?.(snapped, this.state.pieces.length);
 
-      // Scoring: +10 per snap; +50 combo bonus if snapped within 5 s of last snap
-      const now = Date.now();
-      let points = 10;
-      const isCombo = this.state.lastSnapAt !== null && now - this.state.lastSnapAt < 5000;
-      if (isCombo) points += 50;
-      this.state.score += points;
-      this.state.lastSnapAt = now;
-      this.callbacks.onScoreUpdate?.(this.state.score);
+      // No scoring in Zen mode
+      if (this.gameMode !== "zen") {
+        // Scoring: +10 per snap; +50 combo bonus if snapped within 5 s of last snap
+        const now = Date.now();
+        let points = 10;
+        const isCombo = this.state.lastSnapAt !== null && now - this.state.lastSnapAt < 5000;
+        if (isCombo) points += 50;
+        this.state.score += points;
+        this.state.lastSnapAt = now;
+        this.callbacks.onScoreUpdate?.(this.state.score);
 
-      // Floating score text at piece's correct board position
-      const def = this.definitions[pieceId];
-      if (def) {
-        const tx = def.correctX + def.width / 2;
-        const ty = def.correctY + def.height / 2;
-        this.anim.addFloatingText(isCombo ? `+${points} Combo!` : `+${points}`, tx, ty, isCombo);
+        // Floating score text at piece's correct board position
+        const def = this.definitions[pieceId];
+        if (def) {
+          const tx = def.correctX + def.width / 2;
+          const ty = def.correctY + def.height / 2;
+          this.anim.addFloatingText(isCombo ? `+${points} Combo!` : `+${points}`, tx, ty, isCombo);
+        }
       }
 
       this.saveState();
@@ -368,10 +414,32 @@ export class PuzzleEngine {
   }
 
   private startTimer() {
-    this.timerInterval = window.setInterval(() => {
-      this.state.timerSeconds++;
-      this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
-    }, 1000);
+    // Zen mode: no timer
+    if (this.gameMode === "zen") return;
+
+    if (this.gameMode === "timed") {
+      this.timerInterval = window.setInterval(() => {
+        this.state.timerSeconds++;
+        if (this.state.timedSecondsLeft > 0) {
+          this.state.timedSecondsLeft--;
+        }
+        this.callbacks.onTimerUpdate?.(this.state.timedSecondsLeft);
+        this.saveState();
+
+        if (this.state.timedSecondsLeft <= 0) {
+          this.stopTimer();
+          this.state.completed = true;
+          this.clearSavedState();
+          this.callbacks.onTimedOut?.(this.state.timerSeconds, this.state.moveCount);
+        }
+      }, 1000);
+    } else {
+      // Classic / Mystery: count up
+      this.timerInterval = window.setInterval(() => {
+        this.state.timerSeconds++;
+        this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
+      }, 1000);
+    }
   }
 
   private stopTimer() {
@@ -717,7 +785,12 @@ export class PuzzleEngine {
   }
 
   setPreview(show: boolean) {
+    if (this.gameMode === "mystery") return;
     this.showPreview = show;
+  }
+
+  getGameMode(): GameMode {
+    return this.gameMode;
   }
 
   resize() {
