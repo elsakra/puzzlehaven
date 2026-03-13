@@ -150,6 +150,29 @@ Three high-impact items from the growth plan implemented in one session:
 
 Finalised the puzzle library at exactly 500 entries with no duplicate slugs or IDs.
 
+### Commit 12: `(pending)` -- Homepage Fun Redesign + SEO Confirmation
+
+**Design overhaul — warm, human-crafted aesthetic replacing the AI-template look:**
+
+- **`src/app/globals.css`** — Body background changed from cold `#fafbfc` to warm cream `#fdf9f3`
+- **`src/components/layout/Header.tsx`** — Header background now matches warm page tone (`bg-[#fdf9f3]/95`); amber gradient logo (matching body palette); "500+ Free Puzzles" tagline badge under brand name on desktop; Create button changed from purple to amber/orange
+- **`src/app/page.tsx`** — Complete homepage rewrite:
+  - **Hero**: `font-black` extra-bold headline, amber uppercase badge with pulse dot, decorative amber offset-shadow box behind the daily puzzle image giving a "physical puzzle box on a table" feel, inline stat row (500+ puzzles · 24–150 pieces · Free forever), CTA buttons changed from purple to amber/orange
+  - **Stats strip**: Full-width amber-50 band between hero and categories: 🧩 500+ puzzles · 📅 New puzzle every day · 📱 Works on any device · ✨ No sign-up
+  - **Category section**: Replaced flat text-pill cards with image-based aspect-ratio cards showing the first puzzle thumbnail per category, dark gradient overlay, emoji + name + puzzle count at bottom — hover zooms image
+  - **Popular Puzzles**: Renamed to "Start Solving" with "Handpicked favorites" subheading; "View All" changed from a plain link to a styled amber button
+  - **"Why" section**: Completely replaced the generic 3-column icon-box layout with a dark `bg-slate-900` editorial banner: bold statement headline, three big stat numbers (500+ / Daily / 24–150) in amber/emerald/purple below a divider
+  - **Email CTA**: Changed from cold indigo gradient to warm amber→orange→rose gradient with decorative background circles
+- **`src/components/PuzzleCard.tsx`** — Added prominent white "Play Now →" pill button that appears centered on card hover (was a faint gradient), changed hover border from indigo to amber
+- **`src/components/layout/Footer.tsx`** — Background changed from cold `bg-slate-50` to warm `bg-amber-50/60`; link hover color changed from indigo to amber; logo gradient updated to amber/orange
+
+**SEO — robots.txt and sitemap confirmed working:**
+- `https://online-jigsaws.com/robots.txt` — allows all crawlers, references sitemap ✓
+- `https://online-jigsaws.com/sitemap.xml` — 526 URLs, fully indexed by Next.js App Router ✓
+- Submit `https://online-jigsaws.com/sitemap.xml` in Google Search Console under Sitemaps
+
+**Build result:** 526 static pages, exit 0.
+
 ### Commit 11: `(pending)` -- Custom Puzzle Sharing + Hint System + Undo System (Phase 1.4 + 3.3 + 3.4)
 
 **Phase 1.4 from MISSION.md — `custom-puzzle-sharing`:**
@@ -251,7 +274,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 11)
+## Current State (as of commit 12)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -272,7 +295,8 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **`/free-jigsaw-puzzles`** landing page — targets #1 head keyword, 12 featured puzzles, 600+ word SEO content, FAQPage schema
 - **`/jigsaw-puzzles-for-adults`** landing page — targets senior/adult demographic keyword, benefits grid, FAQPage schema
 - **FAQPage JSON-LD schema** on all 8 category pages — 5 dynamically-tailored Q&As per category
-- Full sitemap (526 URLs), robots.txt, schema markup
+- Full sitemap (526 URLs) at `https://online-jigsaws.com/sitemap.xml`, robots.txt, schema markup
+- **Redesigned homepage** — warm cream background, amber/orange palette, image-based category cards, editorial dark stats banner, offset-shadow hero image
 - Mobile-responsive layout
 - AdSense slot placeholders ready for activation
 - **Google Analytics 4** live (Measurement ID `G-PG49JWER6N`) with 5 custom events
