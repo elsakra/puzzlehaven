@@ -1,6 +1,8 @@
-# MISSION: PuzzleHaven to $20K/mo
+# MISSION: Online Jigsaws to $20K/mo
 
-This is the strategic playbook for getting PuzzleHaven from its current state (~$40/mo) to $20,000/month in ad revenue. Any agent or developer picking up this project should read this file first.
+This is the strategic playbook for getting **Online Jigsaws** (online-jigsaws.com) from its current state to $20,000/month in ad revenue. Any agent or developer picking up this project should read this file first.
+
+> **Brand note**: The site was previously named "PuzzleHaven" (puzzlehaven.vercel.app). It has been rebranded to **Online Jigsaws** at **https://online-jigsaws.com**. The GitHub repo remains at `github.com/elsakra/puzzlehaven`. All code now uses `Online Jigsaws` as the brand name.
 
 ---
 
@@ -33,7 +35,7 @@ The formula: **Monthly Revenue = Pageviews x RPM / 1000**
 
 With an average 2.5 pages/session, $20K/mo at Mediavine RPM requires ~320,000 monthly sessions.
 
-**Current state**: ~55 indexable pages, ~5K monthly pageviews, ~$40/mo at AdSense rates.
+**Current state**: ~500+ indexable puzzle pages + blog + category pages, streaks wired, domain live at online-jigsaws.com.
 
 ---
 
@@ -41,8 +43,8 @@ With an average 2.5 pages/session, $20K/mo at Mediavine RPM requires ~320,000 mo
 
 | Milestone | Monthly PVs | RPM | Revenue | What Gets You There |
 |-----------|-------------|-----|---------|---------------------|
-| Current | ~5K | $8 | ~$40 | 55 puzzles, AdSense, no marketing |
-| +500 pages, Ezoic, fix UX | ~100K | $18 | ~$1,800 | Programmatic SEO scale, mobile pan/zoom |
+| Current | ~5K→growing | $8 | ~$40 | 500 puzzles live, domain set, streaks wired |
+| +Ezoic, fix UX, landing pages | ~100K | $18 | ~$1,800 | Programmatic SEO scale, mobile pan/zoom |
 | +viral loops, push notifs | ~300K | $22 | ~$6,600 | Custom puzzle sharing, email list, social |
 | +Mediavine, ad refresh | ~500K | $30 | ~$15,000 | Premium ads, longer sessions, more impressions |
 | +content authority, backlinks | ~750K | $28 | ~$21,000 | Blog authority, guest posts, PR mentions |
@@ -53,11 +55,9 @@ With an average 2.5 pages/session, $20K/mo at Mediavine RPM requires ~320,000 mo
 
 These bugs actively destroy retention and revenue. Fix them first.
 
-### 1.1 Wire streak tracking
+### 1.1 Wire streak tracking ✓ DONE
 
-`updateStreak()` and `markDailyCompleted()` in `src/lib/storage.ts` exist but are never called. Wire them into the puzzle completion callback when `puzzleId` starts with `daily-`. Streaks are the #1 daily retention hook.
-
-**Files**: `src/components/puzzle/PuzzleCanvas.tsx`, `src/lib/storage.ts`, `src/app/daily/DailyInfo.tsx`
+`updateStreak()` and `markDailyCompleted()` are now called in `PuzzleCanvas.tsx` `onComplete` callback when `puzzleId` starts with `daily-`. Streaks are live.
 
 ### 1.2 Add Google Analytics 4
 
@@ -77,15 +77,15 @@ Zero visibility into traffic or user behavior. Add GA4 to `src/app/layout.tsx` w
 
 Currently 55 puzzles = 55 indexable pages. Competitors have thousands. This is the single biggest traffic lever.
 
-### 2.1 Scale to 500+ puzzle pages
+### 2.1 Scale to 500+ puzzle pages ✓ DONE
 
-Unsplash has millions of free images with stable IDs. Create a data file with 500+ puzzle entries across all 8 categories using curated Unsplash photo IDs. Each page gets a unique title, description, metadata, and schema markup targeting long-tail keywords like "free [animal] jigsaw puzzle online."
+500 unique puzzle entries live across all 8 categories. Sitemap now covers 500+ indexable URLs.
 
-**File**: `src/data/puzzles.ts` (currently 55 entries -- expand to 500+)
+**File**: `src/data/puzzles.ts` (500 entries ✓)
 
-### 2.2 Blog index page
+### 2.2 Blog index page ✓ DONE
 
-Blog posts exist in `src/data/blog.ts` but there is no `/blog` index page. Create `src/app/blog/page.tsx` listing all posts. Add internal links from blog posts to puzzle pages and vice versa.
+`src/app/blog/page.tsx` created — lists all 5 blog posts with SEO metadata, breadcrumbs, and a daily puzzle CTA.
 
 ### 2.3 High-intent landing pages
 
@@ -203,9 +203,9 @@ Cache static assets, puzzle data, and recent images. Enable "Add to Home Screen.
 
 Target: LCP < 2.5s, CLS < 0.1, INP < 200ms. Lazy-load below-fold images and ad slots. Preconnect to image CDN domains. Google rewards good Core Web Vitals with higher rankings.
 
-### 6.4 Custom domain
+### 6.4 Custom domain ✓ DONE
 
-Currently on `puzzlehaven.vercel.app`. Register `puzzlehaven.com` and configure via Vercel Domains. A custom domain is essential for SEO authority and ad network approval.
+Domain `online-jigsaws.com` is configured in Vercel. All code updated to use the new domain.
 
 ---
 
@@ -234,16 +234,16 @@ Currently on `puzzlehaven.vercel.app`. Register `puzzlehaven.com` and configure 
 
 ## Engagement Gap: Us vs. the Competition
 
-| Feature | online-solitaire.com | PuzzleHaven (current) |
+| Feature | online-solitaire.com | Online Jigsaws (current) |
 |---------|---------------------|----------------------|
 | Sound effects | Every action | Silent |
 | Undo + Hint | Yes | None |
 | Score display | Score + Time + Moves | Timer only |
 | Game modes | 6 per game type | 1 mode (random scatter) |
 | Settings | Card decks, backgrounds | None |
-| Daily challenge | With habit loop | Exists but streaks broken |
+| Daily challenge | With habit loop | Exists but streaks wired ✓ |
 | Animations | Smooth card movement | Pieces teleport on snap |
-| Game variations | 320 across types | 55 puzzles, 1 game type |
+| Game variations | 320 across types | 500 puzzles, 1 game type |
 
 Closing this gap is what turns one-time visitors into daily users.
 

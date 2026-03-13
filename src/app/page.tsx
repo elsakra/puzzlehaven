@@ -100,7 +100,7 @@ export default function Home() {
       <section className="py-10">
         <div className="bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-3xl p-8 sm:p-12 text-center border border-slate-200/60">
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-4">
-            Why PuzzleHaven?
+            Why Online Jigsaws?
           </h2>
           <p className="text-slate-500 max-w-2xl mx-auto mb-10 text-lg">
             Jigsaw puzzles are one of the best ways to relax, reduce stress, and

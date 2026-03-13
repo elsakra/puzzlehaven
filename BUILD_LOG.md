@@ -1,4 +1,4 @@
-# PuzzleHaven -- Build Log
+# Online Jigsaws -- Build Log
 
 Everything that was built, in what order, and what bugs were fixed.
 
@@ -6,11 +6,11 @@ Everything that was built, in what order, and what bugs were fixed.
 
 ## Project Overview
 
-**PuzzleHaven** is a free online jigsaw puzzle website monetized through display ads, targeting the 65+ female US demographic ($15-30 RPM). Modeled after [online-solitaire.com](https://online-solitaire.com/) which earns ~$15K/mo from a simple ad-supported web game.
+**Online Jigsaws** (previously "PuzzleHaven") is a free online jigsaw puzzle website monetized through display ads, targeting the 65+ female US demographic ($15-30 RPM). Modeled after [online-solitaire.com](https://online-solitaire.com/) which earns ~$15K/mo from a simple ad-supported web game.
 
-- **Live URL**: https://puzzlehaven.vercel.app
+- **Live URL**: https://online-jigsaws.com
 - **Repository**: https://github.com/elsakra/puzzlehaven
-- **Deployment**: Vercel (auto-deploys on push to `master`)
+- **Deployment**: Vercel (auto-deploys on push to `master`; custom domain `online-jigsaws.com` configured in Vercel)
 
 ---
 
@@ -150,9 +150,19 @@ Three high-impact items from the growth plan implemented in one session:
 
 Finalised the puzzle library at exactly 500 entries with no duplicate slugs or IDs.
 
+### Commit 7: `(pending)` -- Domain rebrand to online-jigsaws.com
+
+Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase:
+
+- `NEXT_PUBLIC_SITE_URL` updated to `https://online-jigsaws.com` in `.env.local`
+- `NEXT_PUBLIC_SITE_NAME` updated to `Online Jigsaws`
+- Fallback URLs in `robots.ts` and `sitemap.ts` updated
+- Brand name updated in: `layout.tsx`, `Header.tsx`, `Footer.tsx` (×2), `blog/page.tsx`, `blog/[slug]/page.tsx`, `page.tsx`, `data/blog.ts` (×3)
+- `BUILD_LOG.md` and `MISSION.md` updated with new domain
+
 ---
 
-## Current State (as of commit `4fe414b`)
+## Current State (as of commit 7)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -184,7 +194,7 @@ Finalised the puzzle library at exactly 500 entries with no duplicate slugs or I
 Two detailed plan files exist with all pending work:
 
 - `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Sound, animation, scoring, undo, hints, pan/zoom, game modes, streaks, achievements, settings
-- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Fix bugs, scale to 500+ puzzles, SEO landing pages, ad optimization, viral loops, Cloudinary migration, custom domain
+- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- SEO landing pages, ad optimization, viral loops, Cloudinary migration, GA4, email capture, custom puzzle sharing
 
 ---
 

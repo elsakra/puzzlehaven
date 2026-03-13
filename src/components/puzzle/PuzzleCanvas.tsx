@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
+import { updateStreak, markDailyCompleted } from "@/lib/storage";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
 
@@ -65,6 +66,11 @@ export default function PuzzleCanvas({
           setCompleted(true);
           setTimer(secs);
           setMoves(mvs);
+          if (puzzleId.startsWith("daily-")) {
+            updateStreak();
+            const today = new Date().toISOString().split("T")[0];
+            markDailyCompleted(today, secs, count);
+          }
         },
         onProgress: (snapped, total) => setProgress({ snapped, total }),
       });

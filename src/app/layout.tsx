@@ -9,7 +9,7 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const siteName = "PuzzleHaven";
+const siteName = "Online Jigsaws";
 const siteDesc =
   "Free online jigsaw puzzles. Play daily challenges, create custom puzzles from your photos, and solve puzzles with friends.";
 

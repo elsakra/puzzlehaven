@@ -17,7 +17,7 @@ export default function Header() {
               </svg>
             </div>
             <span className="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
-              PuzzleHaven
+              Online Jigsaws
             </span>
           </Link>
 

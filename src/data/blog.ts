@@ -154,7 +154,7 @@ Before diving into our picks, here's what makes a great online puzzle experience
 - **Save progress** — Ability to pause and resume later
 - **Clean design** — Minimal clutter and reasonable ad placement
 
-## PuzzleHaven
+## Online Jigsaws
 
 Our own site offers a modern, clean puzzle experience with several unique features:
 
@@ -219,7 +219,7 @@ Happy puzzling!
     content: `
 One of the most delightful things you can do with a jigsaw puzzle is make one from your own photo. Whether it's a cherished family portrait, a stunning vacation shot, or an adorable picture of your pet, custom jigsaw puzzles add a personal touch that makes solving extra special.
 
-## Creating a Custom Puzzle on PuzzleHaven
+## Creating a Custom Puzzle on Online Jigsaws
 
 Making a custom puzzle on our site takes just seconds:
 
@@ -319,7 +319,7 @@ Best for dedicated puzzlers who want a substantial challenge. Our save feature m
 
 ## Tips for Online Puzzles
 
-Online jigsaw puzzles like those on PuzzleHaven offer several advantages for seniors:
+Online jigsaw puzzles like those on Online Jigsaws offer several advantages for seniors:
 
 1. **No physical setup needed** — No clearing table space or worrying about lost pieces
 2. **Adjustable difficulty** — Switch between piece counts easily

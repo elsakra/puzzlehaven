@@ -42,7 +42,7 @@ export default async function BlogPostPage({ params }: Props) {
     datePublished: post.publishedAt,
     publisher: {
       "@type": "Organization",
-      name: "PuzzleHaven",
+      name: "Online Jigsaws",
     },
   };
 
