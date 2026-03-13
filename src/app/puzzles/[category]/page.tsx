@@ -6,6 +6,45 @@ import { categories, getCategoryBySlug } from "@/data/categories";
 import { getPuzzlesByCategory } from "@/data/puzzles";
 import Link from "next/link";
 
+function buildFaqSchema(catName: string) {
+  const name = catName.toLowerCase();
+  const items = [
+    {
+      question: `Are these ${name} jigsaw puzzles free?`,
+      answer: `Yes — every ${name} puzzle on Online Jigsaws is completely free to play. No subscription, no account, and no download required. Just open the page and start solving.`,
+    },
+    {
+      question: `How do I play ${name} jigsaw puzzles online?`,
+      answer: `Click on any puzzle thumbnail to open the puzzle page. Choose your preferred piece count (24, 48, 96, or 150 pieces), then drag and drop pieces onto the board to assemble the image. Pieces snap into place automatically when correctly positioned.`,
+    },
+    {
+      question: `What difficulty levels are available for ${name} puzzles?`,
+      answer: `Every puzzle offers four difficulty levels based on piece count: 24 pieces (easy, around 5–10 minutes), 48 pieces (medium, 10–20 minutes), 96 pieces (hard, 20–40 minutes), and 150 pieces (expert, 40+ minutes). You can switch difficulty at any time.`,
+    },
+    {
+      question: `Can I play ${name} jigsaw puzzles on my phone or tablet?`,
+      answer: `Yes. All puzzles work on smartphones and tablets. Use your finger to drag and place pieces just as you would on a desktop computer. The layout adapts automatically to your screen size.`,
+    },
+    {
+      question: `Will my progress be saved if I leave the page?`,
+      answer: `Yes. Your puzzle progress is automatically saved to your browser. If you close the tab or navigate away, your piece positions will be restored when you return to the same puzzle page.`,
+    },
+  ];
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
 interface Props {
   params: Promise<{ category: string }>;
 }
@@ -36,8 +75,14 @@ export default async function CategoryPage({ params }: Props) {
   if (!cat) notFound();
 
   const categoryPuzzles = getPuzzlesByCategory(category);
+  const faqSchema = buildFaqSchema(cat.name);
 
   return (
+    <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+    />
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-sm text-slate-400 mb-5">
@@ -101,6 +146,24 @@ export default async function CategoryPage({ params }: Props) {
           </p>
         </div>
       </section>
+
+      {/* FAQ section */}
+      <section className="mt-10 mb-4 max-w-3xl">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">
+          Frequently Asked Questions
+        </h2>
+        <div className="space-y-4">
+          {faqSchema.mainEntity.map((item) => (
+            <div key={item.name} className="border border-slate-200 rounded-xl p-4">
+              <h3 className="font-semibold text-slate-700 text-sm mb-1">{item.name}</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                {item.acceptedAnswer.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
+    </>
   );
 }
