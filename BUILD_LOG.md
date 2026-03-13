@@ -274,6 +274,22 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
+### Commit 21: Mobile UX Fix — scroll prevention + larger canvas
+
+**Bug fixes — `mobile-ux`:**
+
+Two mobile-specific bugs reported by user:
+
+1. **Page scroll hijacking drag gestures** — `InteractionHandler.bindEvents()` sets `canvas.style.touchAction = "none"` only after the async image load completes, leaving a window where the browser's native scroll gesture could fire for touches on the canvas. Also, any touch on the canvas container div (not the canvas itself) lacked `touch-action` protection. Fixed by adding `style={{ touchAction: "none" }}` directly to both the `<canvas>` element and the canvas container `<div>` in `PuzzleCanvas.tsx`, ensuring the CSS is applied at first render before any JavaScript runs.
+
+2. **Puzzle area too small on mobile** — the canvas container had a fixed `style={{ aspectRatio: "4/3" }}` giving only ~281px height on a 375px-wide phone. Removed the inline style and switched to Tailwind responsive aspect-ratio classes: `aspect-square` on mobile (375×375px, +33% height vs before) and `sm:aspect-[4/3]` on ≥640px screens (unchanged desktop layout).
+
+**Files changed:** `src/components/puzzle/PuzzleCanvas.tsx` only (2-line change).
+
+**Build result:** 128 static pages, exit 0.
+
+---
+
 ### Commit 20: Edge Sort Tray (Engagement Plan Phase 2D)
 
 **Engagement Plan Phase 2D — `edge-sort`:**
@@ -433,6 +449,8 @@ Real jigsaw solvers always start with edge pieces. This feature lets them do tha
 - **Progress-saved toast** — "✓ Progress saved — come back anytime!" pill appears on first piece snap, auto-dismisses after 4 s
 - **puzzle_abandoned analytics** — GA4 `puzzle_abandoned` event fires on `beforeunload` when user leaves mid-puzzle
 - **Edge sort tray** — "Sort Edges" button moves all unsnapped flat-edge pieces into a labeled dashed tray below the board; corners sorted first; fully undoable; tray persists in localStorage
+- **Mobile scroll fix** — `touch-action: none` applied via inline JSX style on both the canvas element and its container div, preventing page-scroll from hijacking drag gestures on mobile
+- **Mobile canvas size** — canvas container uses `aspect-square` on mobile (375×375px on a 375px phone, +33% height vs before) and `aspect-[4/3]` on sm+ screens
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)

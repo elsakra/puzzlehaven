@@ -336,8 +336,8 @@ export default function PuzzleCanvas({
 
       <div
         ref={canvasContainerRef}
-        className="relative w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
-        style={{ aspectRatio: "4/3" }}
+        className="relative w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 aspect-square sm:aspect-[4/3]"
+        style={{ touchAction: "none" }}
       >
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 z-10">
@@ -352,6 +352,7 @@ export default function PuzzleCanvas({
         <canvas
           ref={canvasRef}
           className="w-full h-full cursor-grab active:cursor-grabbing"
+          style={{ touchAction: "none" }}
         />
       </div>
 
