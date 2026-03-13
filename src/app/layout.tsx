@@ -45,13 +45,13 @@ export const metadata: Metadata = {
   },
 };
 
+const ADSENSE_PUBLISHER_ID = "ca-pub-5593486984619998";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const adsenseId = process.env.NEXT_PUBLIC_ADSENSE_ID;
-
   return (
     <html lang="en">
       <head>
@@ -70,13 +70,12 @@ export default function RootLayout({
             `,
           }}
         />
-        {adsenseId && (
-          <script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
-            crossOrigin="anonymous"
-          />
-        )}
+        {/* Google AdSense — publisher ID hardcoded (public value, required for verification) */}
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUBLISHER_ID}`}
+          crossOrigin="anonymous"
+        />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-white text-stone-900`}>
         <Header />
