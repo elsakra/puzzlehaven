@@ -7,6 +7,11 @@ import { analytics } from "@/lib/gtag";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
 
+interface HintState {
+  available: boolean;
+  cooldownLeft: number;
+}
+
 interface PuzzleCanvasProps {
   imageUrl: string;
   puzzleId: string;
@@ -37,6 +42,10 @@ export default function PuzzleCanvas({
   const [pieceCount, setPieceCount] = useState(initialPieceCount);
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isViewTransformed, setIsViewTransformed] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [hintState, setHintState] = useState<HintState>({ available: false, cooldownLeft: 0 });
 
   const sizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -59,12 +68,18 @@ export default function PuzzleCanvas({
       setTimer(0);
       setMoves(0);
       setProgress({ snapped: 0, total: 0 });
+      setIsViewTransformed(false);
+      setCanUndo(false);
+      setHintState({ available: false, cooldownLeft: 0 });
 
       sizeCanvas();
 
       const engine = new PuzzleEngine(canvas, {
         onTimerUpdate: setTimer,
-        onMoveCountUpdate: setMoves,
+        onMoveCountUpdate: (count) => {
+          setMoves(count);
+          setCanUndo(engineRef.current?.canUndo() ?? false);
+        },
         onComplete: (secs, mvs) => {
           setCompleted(true);
           setTimer(secs);
@@ -78,12 +93,17 @@ export default function PuzzleCanvas({
           }
         },
         onProgress: (snapped, total) => setProgress({ snapped, total }),
+        onTransformChange: setIsViewTransformed,
       });
+
+      // Sync initial mute state from the new engine
+      setIsMuted(engine.isMuted());
 
       try {
         await engine.init(imageUrl, count, puzzleId, seed);
         engineRef.current = engine;
         analytics.puzzleStart(puzzleId, count, puzzleCategory);
+        setHintState(engine.canHint());
       } catch (err) {
         console.error("Failed to init puzzle engine:", err);
       } finally {
@@ -109,6 +129,16 @@ export default function PuzzleCanvas({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [sizeCanvas]);
+
+  // Poll hint cooldown every second
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (engineRef.current) {
+        setHintState(engineRef.current.canHint());
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const togglePreview = useCallback(() => {
     setShowPreview((prev) => {
@@ -141,6 +171,37 @@ export default function PuzzleCanvas({
     }
   }, [sizeCanvas]);
 
+  const toggleMute = useCallback(() => {
+    const newMuted = engineRef.current?.toggleMute() ?? false;
+    setIsMuted(newMuted);
+  }, []);
+
+  const resetView = useCallback(() => {
+    engineRef.current?.resetView();
+  }, []);
+
+  const handleHint = useCallback(() => {
+    engineRef.current?.hint();
+    setHintState({ available: false, cooldownLeft: 10 });
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    engineRef.current?.undo();
+    setCanUndo(engineRef.current?.canUndo() ?? false);
+  }, []);
+
+  // Keyboard shortcuts: Ctrl+Z / Cmd+Z for undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo]);
+
   const handlePieceCountChange = useCallback(
     (count: number) => {
       analytics.pieceCountChange(puzzleId, pieceCount, count);
@@ -162,10 +223,19 @@ export default function PuzzleCanvas({
         progress={progress}
         pieceCount={pieceCount}
         showPreview={showPreview}
+        isFullscreen={isFullscreen}
+        isMuted={isMuted}
+        isViewTransformed={isViewTransformed}
+        canHint={hintState.available}
+        hintCooldownLeft={hintState.cooldownLeft}
+        canUndo={canUndo}
         onPieceCountChange={handlePieceCountChange}
         onTogglePreview={togglePreview}
         onToggleFullscreen={toggleFullscreen}
-        isFullscreen={isFullscreen}
+        onToggleMute={toggleMute}
+        onResetView={resetView}
+        onHint={handleHint}
+        onUndo={handleUndo}
       />
 
       <div

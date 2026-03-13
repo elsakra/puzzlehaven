@@ -8,12 +8,14 @@ import {
 import { generatePieces } from "./PieceGenerator";
 import { renderAllPieces, RenderedPiece } from "./PieceRenderer";
 import { InteractionHandler } from "./InteractionHandler";
+import { SoundManager } from "./SoundManager";
 
 export interface PuzzleCallbacks {
   onTimerUpdate?: (seconds: number) => void;
   onMoveCountUpdate?: (count: number) => void;
   onComplete?: (seconds: number, moves: number) => void;
   onProgress?: (snapped: number, total: number) => void;
+  onTransformChange?: (isTransformed: boolean) => void;
 }
 
 export class PuzzleEngine {
@@ -35,15 +37,41 @@ export class PuzzleEngine {
   private timerInterval: number = 0;
   private callbacks: PuzzleCallbacks = {};
   private showPreview: boolean = false;
+  private puzzleId: string = "";
+
+  // Base transform — set by fitToCanvas, recalculated on resize
+  private baseScale: number = 1;
+  private basePanX: number = 0;
+  private basePanY: number = 0;
+
+  // User transform — accumulates user pan/zoom, reset on resize
+  private userScale: number = 1;
+  private userPanX: number = 0;
+  private userPanY: number = 0;
+
+  // Combined rendering transform
   private scale: number = 1;
   private panX: number = 0;
   private panY: number = 0;
-  private puzzleId: string = "";
+
+  private sound: SoundManager;
+
+  // Hint system
+  private hintPieceId: number | null = null;
+  private hintStartTime: number = 0;
+  private lastHintTime: number = 0;
+  private readonly HINT_DURATION_MS = 3000;
+  private readonly HINT_COOLDOWN_MS = 10000;
+
+  // Undo system
+  private moveHistory: GameState[] = [];
+  private readonly MAX_HISTORY = 50;
 
   constructor(canvas: HTMLCanvasElement, callbacks?: PuzzleCallbacks) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     if (callbacks) this.callbacks = callbacks;
+    this.sound = new SoundManager();
   }
 
   async init(
@@ -79,6 +107,10 @@ export class PuzzleEngine {
     } else {
       this.initFreshState();
     }
+
+    this.userScale = 1;
+    this.userPanX = 0;
+    this.userPanY = 0;
 
     this.fitToCanvas();
     this.setupInteraction();
@@ -155,14 +187,71 @@ export class PuzzleEngine {
 
     const scaleX = this.canvas.width / totalW;
     const scaleY = this.canvas.height / totalH;
-    this.scale = Math.min(scaleX, scaleY, 1);
+    this.baseScale = Math.min(scaleX, scaleY, 1);
 
-    const usedW = totalW * this.scale;
-    const usedH = totalH * this.scale;
-    this.panX = (this.canvas.width - usedW) / 2 + tabSize * this.scale;
-    this.panY = (this.canvas.height - usedH) / 2 + tabSize * this.scale;
+    const usedW = totalW * this.baseScale;
+    const usedH = totalH * this.baseScale;
+    this.basePanX = (this.canvas.width - usedW) / 2 + tabSize * this.baseScale;
+    this.basePanY = (this.canvas.height - usedH) / 2 + tabSize * this.baseScale;
 
+    this.applyTransform();
+  }
+
+  private applyTransform() {
+    this.scale = this.baseScale * this.userScale;
+    this.panX = this.basePanX + this.userPanX;
+    this.panY = this.basePanY + this.userPanY;
     this.interaction?.setTransform(this.scale, this.panX, this.panY);
+  }
+
+  private isViewTransformed(): boolean {
+    return (
+      Math.abs(this.userScale - 1) > 0.01 ||
+      Math.abs(this.userPanX) > 5 ||
+      Math.abs(this.userPanY) > 5
+    );
+  }
+
+  resetView() {
+    this.userScale = 1;
+    this.userPanX = 0;
+    this.userPanY = 0;
+    this.applyTransform();
+    this.callbacks.onTransformChange?.(false);
+  }
+
+  zoomIn() {
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    const factor = 1.25;
+    const newScale = Math.min(60, this.scale * factor);
+    const worldX = (cx - this.panX) / this.scale;
+    const worldY = (cy - this.panY) / this.scale;
+    this.scale = newScale;
+    this.panX = cx - worldX * this.scale;
+    this.panY = cy - worldY * this.scale;
+    this.userScale = this.scale / this.baseScale;
+    this.userPanX = this.panX - this.basePanX;
+    this.userPanY = this.panY - this.basePanY;
+    this.interaction?.setTransform(this.scale, this.panX, this.panY);
+    this.callbacks.onTransformChange?.(this.isViewTransformed());
+  }
+
+  zoomOut() {
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    const factor = 1 / 1.25;
+    const newScale = Math.max(0.02, this.scale * factor);
+    const worldX = (cx - this.panX) / this.scale;
+    const worldY = (cy - this.panY) / this.scale;
+    this.scale = newScale;
+    this.panX = cx - worldX * this.scale;
+    this.panY = cy - worldY * this.scale;
+    this.userScale = this.scale / this.baseScale;
+    this.userPanX = this.panX - this.basePanX;
+    this.userPanY = this.panY - this.basePanY;
+    this.interaction?.setTransform(this.scale, this.panX, this.panY);
+    this.callbacks.onTransformChange?.(this.isViewTransformed());
   }
 
   private setupInteraction() {
@@ -174,11 +263,21 @@ export class PuzzleEngine {
       this.config
     );
 
+    this.interaction.setTransform(this.scale, this.panX, this.panY);
+
     this.interaction.onInteractionStart = () => {
       if (!this.state.startedAt) {
         this.state.startedAt = Date.now();
         this.startTimer();
       }
+    };
+
+    this.interaction.onDragStart = () => {
+      this.pushHistory();
+    };
+
+    this.interaction.onPiecePickup = () => {
+      this.sound.pickup();
     };
 
     this.interaction.onPieceMove = () => {
@@ -195,15 +294,32 @@ export class PuzzleEngine {
       if (snapped === this.state.pieces.length) {
         this.state.completed = true;
         this.stopTimer();
+        this.sound.complete();
         this.callbacks.onComplete?.(
           this.state.timerSeconds,
           this.state.moveCount
         );
         this.clearSavedState();
+      } else {
+        this.sound.snap();
       }
     };
 
-    this.interaction.setTransform(this.scale, this.panX, this.panY);
+    this.interaction.onGroupMerge = () => {
+      this.sound.merge();
+    };
+
+    this.interaction.onTransformChange = (scale, panX, panY) => {
+      this.scale = scale;
+      this.panX = panX;
+      this.panY = panY;
+      if (this.baseScale !== 0) {
+        this.userScale = scale / this.baseScale;
+        this.userPanX = panX - this.basePanX;
+        this.userPanY = panY - this.basePanY;
+      }
+      this.callbacks.onTransformChange?.(this.isViewTransformed());
+    };
   }
 
   private startTimer() {
@@ -250,7 +366,6 @@ export class PuzzleEngine {
     for (const piece of sorted) {
       const rp = this.rendered[piece.id];
       if (!rp) continue;
-
       ctx.drawImage(
         rp.canvas as HTMLCanvasElement,
         piece.x - rp.offsetX,
@@ -258,6 +373,70 @@ export class PuzzleEngine {
       );
     }
 
+    this.drawHint(ctx);
+
+    ctx.restore();
+  }
+
+  private drawHint(ctx: CanvasRenderingContext2D) {
+    if (this.hintPieceId === null) return;
+    const elapsed = Date.now() - this.hintStartTime;
+    if (elapsed > this.HINT_DURATION_MS) {
+      this.hintPieceId = null;
+      return;
+    }
+
+    const piece = this.state.pieces[this.hintPieceId];
+    const def = this.definitions[this.hintPieceId];
+    if (!piece || !def) return;
+
+    const progress = elapsed / this.HINT_DURATION_MS;
+    const pulse = Math.sin(elapsed * 0.012) * 0.5 + 0.5;
+    const alpha = (1 - progress * 0.5) * pulse;
+
+    const cx = def.width / 2;
+    const cy = def.height / 2;
+
+    // Glow ring on current piece position
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "#f6c90e";
+    ctx.lineWidth = 4;
+    ctx.shadowColor = "#f6c90e";
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(piece.x + cx, piece.y + cy, Math.max(cx, cy) + 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Target crosshair at correct position on board
+    const tx = def.correctX + cx;
+    const ty = def.correctY + cy;
+    const r = Math.max(cx, cy) + 8;
+
+    ctx.save();
+    ctx.globalAlpha = (1 - progress * 0.5) * (0.5 + pulse * 0.5);
+    ctx.strokeStyle = "#f6c90e";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.shadowColor = "#f6c90e";
+    ctx.shadowBlur = 12;
+
+    // Dashed circle on board target
+    ctx.beginPath();
+    ctx.arc(tx, ty, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crosshair lines
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2;
+    const arm = r * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(tx - arm, ty);
+    ctx.lineTo(tx + arm, ty);
+    ctx.moveTo(tx, ty - arm);
+    ctx.lineTo(tx, ty + arm);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -322,7 +501,20 @@ export class PuzzleEngine {
   }
 
   resize() {
+    // Reset user transform on resize so the puzzle re-fits the new viewport
+    this.userScale = 1;
+    this.userPanX = 0;
+    this.userPanY = 0;
     this.fitToCanvas();
+    this.callbacks.onTransformChange?.(false);
+  }
+
+  toggleMute(): boolean {
+    return this.sound.toggleMute();
+  }
+
+  isMuted(): boolean {
+    return this.sound.muted;
   }
 
   private saveState() {
@@ -351,10 +543,73 @@ export class PuzzleEngine {
     } catch {}
   }
 
+  private pushHistory() {
+    const snapshot: GameState = JSON.parse(JSON.stringify(this.state));
+    this.moveHistory.push(snapshot);
+    if (this.moveHistory.length > this.MAX_HISTORY) {
+      this.moveHistory.shift();
+    }
+  }
+
+  undo() {
+    if (this.moveHistory.length === 0) return;
+    const prev = this.moveHistory.pop()!;
+    this.state = prev;
+    this.interaction?.updatePieces(this.state.pieces);
+    this.callbacks.onProgress?.(
+      this.state.pieces.filter((p) => p.snapped).length,
+      this.state.pieces.length
+    );
+    this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
+    this.callbacks.onMoveCountUpdate?.(this.state.moveCount);
+    this.saveState();
+  }
+
+  canUndo(): boolean {
+    return this.moveHistory.length > 0;
+  }
+
+  hint() {
+    const now = Date.now();
+    if (now - this.lastHintTime < this.HINT_COOLDOWN_MS) return;
+
+    const unsnapped = this.state.pieces.filter((p) => !p.snapped);
+    if (unsnapped.length === 0) return;
+
+    let best = unsnapped[0];
+    let bestDist = Infinity;
+    for (const piece of unsnapped) {
+      const def = this.definitions[piece.id];
+      if (!def) continue;
+      const dx = piece.x - def.correctX;
+      const dy = piece.y - def.correctY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = piece;
+      }
+    }
+
+    this.hintPieceId = best.id;
+    this.hintStartTime = now;
+    this.lastHintTime = now;
+    this.sound.hint();
+  }
+
+  canHint(): { available: boolean; cooldownLeft: number } {
+    const elapsed = Date.now() - this.lastHintTime;
+    const remaining = Math.max(0, this.HINT_COOLDOWN_MS - elapsed);
+    return {
+      available: remaining === 0 && !this.state.completed,
+      cooldownLeft: Math.ceil(remaining / 1000),
+    };
+  }
+
   destroy() {
     cancelAnimationFrame(this.animFrameId);
     this.stopTimer();
     this.interaction?.destroy();
+    this.sound.destroy();
   }
 
   getState(): GameState {

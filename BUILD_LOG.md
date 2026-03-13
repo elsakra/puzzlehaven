@@ -150,6 +150,63 @@ Three high-impact items from the growth plan implemented in one session:
 
 Finalised the puzzle library at exactly 500 entries with no duplicate slugs or IDs.
 
+### Commit 11: `(pending)` -- Custom Puzzle Sharing + Hint System + Undo System (Phase 1.4 + 3.3 + 3.4)
+
+**Phase 1.4 from MISSION.md — `custom-puzzle-sharing`:**
+
+- **`src/app/api/upload/route.ts`** (new) — Next.js API route that accepts `multipart/form-data` with an image file, uploads it to Cloudinary using server-side env credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), and returns `{ publicId, url }`.
+- **`src/app/play/[id]/page.tsx`** (new) — Shareable dynamic puzzle page. Decodes the `id` URL param, constructs the Cloudinary image URL (`https://res.cloudinary.com/dil14r8je/image/upload/{publicId}`), and renders `<PuzzleCanvas>` with it. Reads `?pieces=` query param to restore the piece count.
+- **`src/app/create/CreatePuzzle.tsx`** — Replaced the broken `blob:` URL flow. After a file is selected, it shows an upload spinner, POSTs the file to `/api/upload`, then navigates to `/play/{encodeURIComponent(publicId)}?pieces={count}` via `window.location.href`. The resulting `/play/[id]` URL is fully shareable — `CompletionModal`'s `window.location.href` will naturally point to the correct shareable URL.
+
+**Phase 3.3 from MISSION.md — `hint-system`:**
+
+- **`src/engine/PuzzleEngine.ts`** — New `hint()` method: checks 10 s cooldown, finds the unsnapped piece with the smallest Euclidean distance to its correct position, sets `hintPieceId` + `hintStartTime`, plays `this.sound.hint()`. New `canHint()` returns `{ available, cooldownLeft }`. In `draw()`, new `drawHint()` private method renders (while hint is active ≤ 3 s) a pulsing golden ring around the hinted piece at its current location, and a dashed circle + crosshair target at the piece's correct board position. Alpha pulses via `sin(elapsed * 0.012)`.
+- **`src/components/puzzle/PuzzleControls.tsx`** — Added `canHint`, `hintCooldownLeft` props + a lightbulb button (amber when available, grey when cooling down) with a countdown badge overlay during cooldown.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — Wires `engineRef.current?.hint()` to `handleHint`, polls `canHint()` via a 1 s `setInterval`, passes state to `PuzzleControls`.
+
+**Phase 3.4 from MISSION.md — `undo-system`:**
+
+- **`src/engine/InteractionHandler.ts`** — Added `onDragStart: (() => void) | null` callback, fired on `pointerDown` immediately before the drag begins (once a piece is hit-tested). Also added `updatePieces(pieces)` method so `PuzzleEngine.undo()` can swap in the restored piece array.
+- **`src/engine/PuzzleEngine.ts`** — `private moveHistory: GameState[]` (max 50). `onDragStart` calls `pushHistory()` which deep-clones `this.state`. `undo()` pops the last snapshot, restores `this.state`, calls `interaction.updatePieces()`, fires all update callbacks, saves state. `canUndo()` returns `moveHistory.length > 0`.
+- **`src/components/puzzle/PuzzleControls.tsx`** — Added `canUndo`, `onUndo` props + a ↩ undo button (disabled when history is empty).
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — Wires `undo()` to `handleUndo`, updates `canUndo` state via `onMoveCountUpdate` callback, and adds a `keydown` listener for `Ctrl+Z` / `Cmd+Z`.
+
+**Build result:** 526 static pages, exit 0. New dynamic routes: `/api/upload` (POST), `/play/[id]` (GET).
+
+### Commit 10: `(pending)` -- Canvas Pan/Zoom + Web Audio Sound Effects (Phase 3.1 + 3.2)
+
+**Phase 3.1 + 3.2 from MISSION.md — `pan-zoom` + `sound-manager`:**
+
+**pan-zoom (`src/engine/InteractionHandler.ts` + `src/engine/PuzzleEngine.ts`):**
+- `InteractionHandler` now tracks all active pointer events in a `Map<number, {clientX, clientY}>`
+- **Single pointer on empty canvas** → pan: updates `panX`/`panY`, fires `onTransformChange`
+- **Two simultaneous pointers (pinch)** → zoom + pan: computes scale factor from distance delta; keeps the world point under the old midpoint aligned to the new midpoint for natural pinch feel
+- **Mouse wheel** → zoom centered on cursor: normalises `deltaY` across `deltaMode` (pixel/line/page), applies `pow(0.998, delta)` for smooth zoom
+- `onGroupMerge` and `onPiecePickup` callbacks added to InteractionHandler
+- `PuzzleEngine` separates `baseScale`/`basePanX`/`basePanY` (from `fitToCanvas`) from `userScale`/`userPanX`/`userPanY` (from gestures); the combined transform is always `scale = baseScale * userScale`, `panX = basePanX + userPanX`
+- `resetView()` — resets user transform and fires `onTransformChange(false)`
+- `zoomIn()` / `zoomOut()` — 1.25× step zoom centred on canvas mid-point
+- `resize()` now resets user transform first so puzzles always re-fit the new viewport
+- New callback `PuzzleCallbacks.onTransformChange(isTransformed: boolean)` — React uses this to show/hide the Reset View button
+
+**sound-manager (`src/engine/SoundManager.ts`):**
+- New `SoundManager` class using Web Audio API; **no external audio files** — all sounds synthesized procedurally
+- `pickup()` — 80ms sine glide 660→440 Hz (soft pop when lifting a piece)
+- `snap()` — 18ms square click at 1400 Hz + 280ms sine chime at 1047 Hz (C6)
+- `merge()` — 18ms square click at 900 Hz + 320ms sine chime at 698 Hz (F5, deeper than snap)
+- `complete()` — ascending arpeggio: C5 → E5 → G5 → C6 at 140ms intervals
+- `hint()` — 350ms gentle ping at 1047 Hz (reserved for future hint button)
+- Lazy `AudioContext` creation (satisfies browser autoplay policy — only on first user gesture)
+- `muted` state persisted to `localStorage` key `puzzle_sound_muted`
+- `PuzzleEngine` instantiates `SoundManager` in constructor; fires `pickup()` on `onPiecePickup`, `snap()` / `complete()` on `onPieceSnap`, `merge()` on `onGroupMerge`; exposes `toggleMute()` / `isMuted()` passthroughs
+
+**controls UI (`src/components/puzzle/PuzzleControls.tsx` + `PuzzleCanvas.tsx`):**
+- **Reset View button** — appears conditionally only when `isViewTransformed` is true; collapses back once view is reset
+- **Mute toggle button** — speaker-on / muted SVG; state synced with engine on init and on toggle
+- `PuzzleCanvas` adds `isMuted` and `isViewTransformed` state, wires both to `PuzzleControls`
+
+**Build result:** 525 static pages, exit 0.
+
 ### Commit 9: `(pending)` -- Google Analytics 4 (Phase 1.2)
 
 **Phase 1.2 from 20k revenue plan — `add-analytics`:**
@@ -194,7 +251,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 9)
+## Current State (as of commit 11)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -203,6 +260,9 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - Daily puzzle with deterministic seed
 - **Streak tracking** — `updateStreak()` and `markDailyCompleted()` are called on daily puzzle completion
 - Custom puzzle creation from uploaded photos
+- **Custom puzzle sharing** — photos upload to Cloudinary, generates a permanent `/play/[publicId]` URL that anyone can open
+- **Hint system** — lightbulb button highlights the closest unsnapped piece with a pulsing golden glow + target crosshair; 10 s cooldown with countdown badge
+- **Undo system** — ↩ button and Ctrl+Z / Cmd+Z restore last piece position; snapshot-based history (max 50 moves)
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
@@ -212,17 +272,15 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **`/free-jigsaw-puzzles`** landing page — targets #1 head keyword, 12 featured puzzles, 600+ word SEO content, FAQPage schema
 - **`/jigsaw-puzzles-for-adults`** landing page — targets senior/adult demographic keyword, benefits grid, FAQPage schema
 - **FAQPage JSON-LD schema** on all 8 category pages — 5 dynamically-tailored Q&As per category
-- Full sitemap (527 URLs: 500 puzzle pages + 8 categories + 5 blog posts + 2 landing pages + static), robots.txt, schema markup
+- Full sitemap (526 URLs), robots.txt, schema markup
 - Mobile-responsive layout
 - AdSense slot placeholders ready for activation
-- **Google Analytics 4** live (Measurement ID `G-PG49JWER6N`) with 5 custom events: `puzzle_start`, `puzzle_complete`, `piece_count_change`, `daily_completed`, `custom_puzzle_created`
+- **Google Analytics 4** live (Measurement ID `G-PG49JWER6N`) with 5 custom events
+- **Canvas pan/zoom** — mouse wheel zoom, pinch-to-zoom on mobile, drag-to-pan on empty canvas, "Reset View" button appears when view is transformed
+- **Web Audio sound effects** — pickup pop, snap chime, group-merge resonance, completion arpeggio; mute toggle persisted to localStorage
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)
-- **Custom puzzle sharing**: Uses `blob:` URLs that break on refresh/share
-- **No pan/zoom**: 96+ piece puzzles are impractical on mobile
-- **No sound**: Completely silent -- no feedback loop
-- **No undo/hint**: Players have no recourse when stuck
 
 ### Blocked (needs credentials)
 - **Email capture** (`fix-email`): Needs ConvertKit or Buttondown API key
