@@ -9,7 +9,7 @@ import { generatePieces } from "./PieceGenerator";
 import { renderAllPieces, RenderedPiece } from "./PieceRenderer";
 import { InteractionHandler } from "./InteractionHandler";
 import { SoundManager } from "./SoundManager";
-import { AnimationManager } from "./AnimationManager";
+import { AnimationManager, ConfettiParticle } from "./AnimationManager";
 
 export interface PuzzleCallbacks {
   onTimerUpdate?: (seconds: number) => void;
@@ -329,6 +329,7 @@ export class PuzzleEngine {
         this.state.completed = true;
         this.stopTimer();
         this.sound.complete();
+        this.anim.triggerConfetti(this.canvas.width, this.canvas.height);
         this.callbacks.onComplete?.(
           this.state.timerSeconds,
           this.state.moveCount
@@ -439,6 +440,12 @@ export class PuzzleEngine {
     this.drawFloatingTexts(ctx);
 
     ctx.restore();
+
+    // Confetti renders in screen space (not affected by world pan/zoom)
+    const confetti = this.anim.stepAndGetConfetti();
+    if (confetti.length > 0) {
+      this.drawConfetti(confetti);
+    }
   }
 
   private drawFloatingTexts(ctx: CanvasRenderingContext2D) {
@@ -474,6 +481,19 @@ export class PuzzleEngine {
 
       ctx.fillStyle = ft.isCombo ? "#ffd700" : "#fbbf24";
       ctx.fillText(ft.text, ft.worldX, ft.worldY - driftY);
+      ctx.restore();
+    }
+  }
+
+  private drawConfetti(particles: ConfettiParticle[]) {
+    const { ctx } = this;
+    for (const p of particles) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.fillStyle = p.color;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       ctx.restore();
     }
   }

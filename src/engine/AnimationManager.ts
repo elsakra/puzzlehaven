@@ -20,8 +20,27 @@ export interface FloatingText {
   isCombo: boolean;
 }
 
+export interface ConfettiParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  gravity: number;
+  color: string;
+  rotation: number;
+  rotationSpeed: number;
+  alpha: number;
+  alphaDecay: number;
+  w: number;
+  h: number;
+}
+
 const SNAP_DURATION_MS = 180;
 const FLOAT_DURATION_MS = 900;
+const CONFETTI_COLORS = [
+  "#fbbf24", "#f97316", "#fb7185", "#34d399",
+  "#818cf8", "#fcd34d", "#38bdf8", "#a78bfa",
+];
 
 function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t);
@@ -30,6 +49,7 @@ function easeOutQuad(t: number): number {
 export class AnimationManager {
   private snaps = new Map<number, SnapAnim>();
   private floats: FloatingText[] = [];
+  private confetti: ConfettiParticle[] = [];
 
   addSnap(data: SnapAnimData[]): void {
     const now = performance.now();
@@ -75,8 +95,54 @@ export class AnimationManager {
     return this.floats;
   }
 
+  /** Spawns confetti from the center area of the canvas on puzzle completion. */
+  triggerConfetti(canvasW: number, canvasH: number): void {
+    const speedBase = canvasW * 0.006;
+    const gravBase = canvasH * 0.00016;
+    this.confetti = [];
+    for (let i = 0; i < 120; i++) {
+      const angle = (Math.random() * Math.PI * 1.4) - Math.PI * 0.7; // upward cone
+      const speed = speedBase * (0.5 + Math.random() * 1.5);
+      this.confetti.push({
+        x: canvasW * 0.25 + Math.random() * canvasW * 0.5,
+        y: canvasH * 0.45 + Math.random() * canvasH * 0.15,
+        vx: Math.cos(angle) * speed,
+        vy: -Math.abs(Math.sin(angle) * speed) - speedBase * 0.5,
+        gravity: gravBase + Math.random() * gravBase,
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.18,
+        alpha: 1,
+        alphaDecay: 0.004 + Math.random() * 0.004,
+        w: 5 + Math.random() * 7,
+        h: 3 + Math.random() * 4,
+      });
+    }
+  }
+
+  /**
+   * Advances confetti physics by one frame and returns the still-alive particles.
+   * Call once per render frame.
+   */
+  stepAndGetConfetti(): ConfettiParticle[] {
+    if (this.confetti.length === 0) return this.confetti;
+    const alive: ConfettiParticle[] = [];
+    for (const p of this.confetti) {
+      p.vy += p.gravity;
+      p.vx *= 0.99;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotationSpeed;
+      p.alpha -= p.alphaDecay;
+      if (p.alpha > 0) alive.push(p);
+    }
+    this.confetti = alive;
+    return alive;
+  }
+
   clear(): void {
     this.snaps.clear();
     this.floats = [];
+    this.confetti = [];
   }
 }
