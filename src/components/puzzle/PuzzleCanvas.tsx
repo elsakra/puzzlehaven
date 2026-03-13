@@ -51,6 +51,8 @@ export default function PuzzleCanvas({
   const [isViewTransformed, setIsViewTransformed] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [hintState, setHintState] = useState<HintState>({ available: false, cooldownLeft: 0 });
+  const [showProgressToast, setShowProgressToast] = useState(false);
+  const progressToastShownRef = useRef(false);
 
   const sizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -77,6 +79,8 @@ export default function PuzzleCanvas({
       setIsViewTransformed(false);
       setCanUndo(false);
       setHintState({ available: false, cooldownLeft: 0 });
+      setShowProgressToast(false);
+      progressToastShownRef.current = false;
 
       sizeCanvas();
 
@@ -98,7 +102,14 @@ export default function PuzzleCanvas({
             analytics.dailyCompleted(today, secs, count);
           }
         },
-        onProgress: (snapped, total) => setProgress({ snapped, total }),
+        onProgress: (snapped, total) => {
+          setProgress({ snapped, total });
+          if (snapped > 0 && !progressToastShownRef.current) {
+            progressToastShownRef.current = true;
+            setShowProgressToast(true);
+            setTimeout(() => setShowProgressToast(false), 4000);
+          }
+        },
         onTransformChange: setIsViewTransformed,
         onScoreUpdate: setScore,
       });
@@ -197,17 +208,60 @@ export default function PuzzleCanvas({
     setCanUndo(engineRef.current?.canUndo() ?? false);
   }, []);
 
-  // Keyboard shortcuts: Ctrl+Z / Cmd+Z for undo
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts when focus is inside a text field
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
         handleUndo();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      switch (e.key) {
+        case "h":
+        case "H":
+          e.preventDefault();
+          handleHint();
+          break;
+        case " ":
+          e.preventDefault();
+          togglePreview();
+          break;
+        case "f":
+        case "F":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "+":
+        case "=":
+          e.preventDefault();
+          engineRef.current?.zoomIn();
+          break;
+        case "-":
+          e.preventDefault();
+          engineRef.current?.zoomOut();
+          break;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleUndo]);
+  }, [handleUndo, handleHint, togglePreview, toggleFullscreen]);
+
+  // Fire analytics when user leaves mid-puzzle
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!completed && progress.snapped > 0 && progress.total > 0) {
+        analytics.puzzleAbandoned(puzzleId, progress.snapped, progress.total);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [completed, progress.snapped, progress.total, puzzleId]);
 
   const handlePieceCountChange = useCallback(
     (count: number) => {
@@ -294,6 +348,15 @@ export default function PuzzleCanvas({
           className="w-full h-full cursor-grab active:cursor-grabbing"
         />
       </div>
+
+      {showProgressToast && !completed && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-800/95 text-white text-sm px-4 py-2.5 rounded-full shadow-lg backdrop-blur-sm animate-[fadeIn_0.3s_ease-out] pointer-events-none">
+          <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          Progress saved — come back anytime!
+        </div>
+      )}
 
       {completed && (
         <CompletionModal
