@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { puzzles } from "@/data/puzzles";
 import { categories } from "@/data/categories";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://online-jigsaws.com";
+const BASE_URL = "https://online-jigsaws.com";
 
 const blogSlugs = [
   "how-to-solve-jigsaw-puzzles-faster",
