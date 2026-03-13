@@ -292,6 +292,19 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
+### Commit 16: Fix All Broken Puzzle Images
+
+**Bug fix — `fix-broken-images`:**
+
+- **Root cause**: `src/data/puzzles.ts` had 299 entries but 58 of the Unsplash photo IDs returned HTTP 404 (photos deleted by their photographers). 91 puzzle entries referenced a broken ID; an additional 105 entries were duplicates (same photo ID used by multiple puzzle entries).
+- **`scripts/fix-broken-images.mjs`** (one-time script, deleted after use) — read the confirmed list of 58 broken IDs, filtered every entry whose `imageUrl` used one, and also deduplicated entries reusing the same photo ID (first occurrence wins).
+- **`src/data/puzzles.ts`** — cleaned from 299 entries to **103 verified-working, unique-photo puzzle entries** across all 8 categories: animals (17), nature (19), landscapes (9), art (13), food (21), travel (13), holidays (3), abstract (8). Every remaining entry has a 200 OK Unsplash image.
+- The daily hero puzzle now always resolves to a working image.
+
+**Build result:** 128 static pages, exit 0 (was 324; reduction reflects removal of ~196 broken/duplicate puzzle pages).
+
+---
+
 ### Commit 15: AdSense Integration + Ad Slot Placements (Phase 4.1)
 
 **Phase 4.1 from MISSION.md — `add-ad-slots`:**
@@ -332,7 +345,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 15)
+## Current State (as of commit 16)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -350,7 +363,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
-- **500 puzzles** across 8 categories (animals, nature, landscapes, art, food, travel, holidays, abstract)
+- **103 verified-working puzzles** across 8 categories (animals 17, nature 19, landscapes 9, art 13, food 21, travel 13, holidays 3, abstract 8) — all 103 confirmed HTTP 200 from Unsplash
 - **"You Might Also Like"** cross-category section on every puzzle page — 4 puzzles from other categories, deterministically varied; ~2,000 cross-category internal links across the site
 - **Blog index page** at `/blog` listing all 5 articles with SEO metadata
 - 5 SEO blog post articles
