@@ -110,6 +110,10 @@ export class PuzzleEngine {
     const saved = this.loadState();
     if (saved) {
       this.state = saved;
+      // Reset startedAt so the timer re-arms on next interaction.
+      // Without this, the timer never starts because onInteractionStart
+      // guards on `!this.state.startedAt`, which would be truthy from the save.
+      this.state.startedAt = null;
     } else {
       this.initFreshState();
     }
