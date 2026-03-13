@@ -28,9 +28,11 @@ export function renderPiece(
   config: PuzzleConfig
 ): RenderedPiece {
   const { tabSize } = config;
-  const padding = tabSize + 2;
-  const canvasW = piece.width + padding * 2;
-  const canvasH = piece.height + padding * 2;
+  const padding = tabSize + 6;
+  const shadowPad = 12;
+  const totalPad = padding + shadowPad;
+  const canvasW = piece.width + totalPad * 2;
+  const canvasH = piece.height + totalPad * 2;
 
   const offscreen = createOffscreen(canvasW, canvasH);
   const ctx = offscreen.getContext("2d") as
@@ -41,34 +43,47 @@ export function renderPiece(
   const path = createPiecePath2D(piece, tabSize);
 
   ctx.save();
-  ctx.translate(padding, padding);
+  ctx.translate(totalPad, totalPad);
 
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.3)";
-  ctx.shadowBlur = 3;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
+  ctx.fillStyle = "#e8e0d4";
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 4;
   ctx.fill(path);
   ctx.restore();
 
   ctx.save();
   ctx.clip(path);
-  ctx.drawImage(
-    image,
-    piece.correctX - padding,
-    piece.correctY - padding,
-    canvasW,
-    canvasH,
-    -padding,
-    -padding,
-    canvasW,
-    canvasH
+  const srcX = Math.max(0, piece.correctX - totalPad);
+  const srcY = Math.max(0, piece.correctY - totalPad);
+  const srcRight = Math.min(
+    image.width,
+    piece.correctX + piece.width + totalPad
   );
+  const srcBottom = Math.min(
+    image.height,
+    piece.correctY + piece.height + totalPad
+  );
+  const srcW = srcRight - srcX;
+  const srcH = srcBottom - srcY;
+  const destX = srcX - piece.correctX - totalPad;
+  const destY = srcY - piece.correctY - totalPad;
+  if (srcW > 0 && srcH > 0) {
+    ctx.drawImage(image, srcX, srcY, srcW, srcH, destX, destY, srcW, srcH);
+  }
   ctx.restore();
 
   ctx.save();
-  ctx.strokeStyle = "rgba(0,0,0,0.15)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke(path);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 0.8;
   ctx.stroke(path);
   ctx.restore();
 
@@ -77,8 +92,8 @@ export function renderPiece(
   return {
     id: piece.id,
     canvas: offscreen,
-    offsetX: padding,
-    offsetY: padding,
+    offsetX: totalPad,
+    offsetY: totalPad,
     path,
   };
 }

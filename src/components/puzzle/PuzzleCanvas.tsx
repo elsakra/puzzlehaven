@@ -139,7 +139,7 @@ export default function PuzzleCanvas({
   }, [pieceCount, initEngine]);
 
   return (
-    <div ref={containerRef} className="relative w-full flex flex-col">
+    <div ref={containerRef} className="relative w-full flex flex-col gap-3">
       <PuzzleControls
         timer={timer}
         moves={moves}
@@ -154,14 +154,16 @@ export default function PuzzleCanvas({
 
       <div
         ref={canvasContainerRef}
-        className="relative w-full bg-stone-100 rounded-xl overflow-hidden border border-stone-200"
+        className="relative w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
         style={{ aspectRatio: "4/3" }}
       >
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-10">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-10 h-10 border-4 border-stone-300 border-t-amber-500 rounded-full animate-spin" />
-              <p className="text-stone-500 text-sm">Loading puzzle...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 z-10">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 border-4 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
+              </div>
+              <p className="text-slate-400 text-sm font-medium">Loading puzzle...</p>
             </div>
           </div>
         )}

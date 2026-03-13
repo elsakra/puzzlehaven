@@ -22,7 +22,6 @@ function formatTime(seconds: number): string {
 
 export default function PuzzleControls({
   timer,
-  moves,
   progress,
   pieceCount,
   showPreview,
@@ -38,28 +37,40 @@ export default function PuzzleControls({
 
   return (
     <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-3 px-1">
-      <div className="flex items-center gap-2 text-sm font-medium text-stone-700">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-        </svg>
-        <span className="tabular-nums">{formatTime(timer)}</span>
-      </div>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full">
+          <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+          </svg>
+          <span className="tabular-nums">{formatTime(timer)}</span>
+        </div>
 
-      <div className="flex items-center gap-2 text-sm text-stone-600">
-        <span>{progress.snapped}/{progress.total}</span>
-        <div className="w-20 h-2 bg-stone-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-amber-500 rounded-full transition-all duration-300"
-            style={{ width: `${pct}%` }}
-          />
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-slate-600 tabular-nums">
+            {progress.snapped}/{progress.total}
+          </span>
+          <div className="w-24 h-2.5 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${pct}%`,
+                background: pct === 100
+                  ? "linear-gradient(90deg, #10b981, #34d399)"
+                  : "linear-gradient(90deg, #6366f1, #818cf8)",
+              }}
+            />
+          </div>
+          {pct > 0 && (
+            <span className="text-xs font-medium text-slate-400">{pct}%</span>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 ml-auto">
+      <div className="flex items-center gap-2 ml-auto">
         <select
           value={pieceCount}
           onChange={(e) => onPieceCountChange(Number(e.target.value))}
-          className="px-2.5 py-1.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-700 cursor-pointer hover:border-stone-300 min-h-[44px]"
+          className="px-3 py-2 text-sm font-medium bg-white border border-slate-200 rounded-lg text-slate-700 cursor-pointer hover:border-indigo-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none min-h-[40px] transition-all"
         >
           {Object.keys(PIECE_PRESETS).map((k) => (
             <option key={k} value={k}>
@@ -70,14 +81,14 @@ export default function PuzzleControls({
 
         <button
           onClick={onTogglePreview}
-          className={`px-3 py-1.5 text-sm rounded-lg border min-h-[44px] transition-colors ${
+          className={`p-2.5 rounded-lg border min-h-[40px] min-w-[40px] flex items-center justify-center transition-all ${
             showPreview
-              ? "bg-amber-50 border-amber-300 text-amber-700"
-              : "bg-white border-stone-200 text-stone-600 hover:border-stone-300"
+              ? "bg-indigo-50 border-indigo-300 text-indigo-600 shadow-sm"
+              : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-500"
           }`}
           title="Toggle preview image"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -85,10 +96,10 @@ export default function PuzzleControls({
 
         <button
           onClick={onToggleFullscreen}
-          className="px-3 py-1.5 text-sm rounded-lg border bg-white border-stone-200 text-stone-600 hover:border-stone-300 min-h-[44px] transition-colors"
+          className="p-2.5 rounded-lg border bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-500 min-h-[40px] min-w-[40px] flex items-center justify-center transition-all"
           title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             {isFullscreen ? (
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
             ) : (

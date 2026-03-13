@@ -64,22 +64,26 @@ export default async function PuzzlePage({ params }: Props) {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-stone-500 mb-4">
-          <Link href="/" className="hover:text-amber-600 transition-colors">Home</Link>
-          <span>/</span>
-          <Link href={`/puzzles/${category}`} className="hover:text-amber-600 transition-colors">
+        <nav className="flex items-center gap-2 text-sm text-slate-400 mb-5">
+          <Link href="/" className="hover:text-indigo-500 transition-colors">Home</Link>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <Link href={`/puzzles/${category}`} className="hover:text-indigo-500 transition-colors">
             {cat?.name ?? category}
           </Link>
-          <span>/</span>
-          <span className="text-stone-700">{puzzle.title}</span>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="text-slate-600 font-medium">{puzzle.title}</span>
         </nav>
 
-        <div className="grid lg:grid-cols-[1fr,300px] gap-6">
+        <div className="grid lg:grid-cols-[1fr,280px] gap-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-stone-800 mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">
               {puzzle.title}
             </h1>
+            <p className="text-slate-400 text-sm mb-5">Free online jigsaw puzzle &middot; 24-150 pieces</p>
 
             <PuzzleCanvas
               imageUrl={puzzle.imageUrl}
@@ -89,11 +93,11 @@ export default async function PuzzlePage({ params }: Props) {
               seed={puzzle.id.charCodeAt(0) * 1000 + puzzle.id.charCodeAt(1)}
             />
 
-            <div className="mt-6">
-              <h2 className="text-lg font-semibold text-stone-800 mb-2">
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200/80 p-6">
+              <h2 className="text-lg font-semibold text-slate-800 mb-2">
                 About This Puzzle
               </h2>
-              <p className="text-stone-600 leading-relaxed">
+              <p className="text-slate-500 leading-relaxed text-sm">
                 {puzzle.description} Choose from 24 to 150 puzzle pieces and
                 challenge yourself at the difficulty level that suits you. Your
                 progress is automatically saved so you can pick up right where
@@ -102,11 +106,10 @@ export default async function PuzzlePage({ params }: Props) {
             </div>
           </div>
 
-          {/* Sidebar */}
-          <aside className="hidden lg:block space-y-6">
+          <aside className="hidden lg:flex flex-col gap-5">
             <AdSlot format="sidebar" />
-            <div>
-              <h3 className="font-semibold text-stone-800 mb-3">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5">
+              <h3 className="font-semibold text-slate-800 mb-4 text-sm">
                 More {cat?.name} Puzzles
               </h3>
               <div className="space-y-3">
@@ -118,9 +121,8 @@ export default async function PuzzlePage({ params }: Props) {
           </aside>
         </div>
 
-        {/* Mobile Related Puzzles */}
         <div className="lg:hidden mt-10">
-          <h3 className="font-semibold text-stone-800 mb-4 text-lg">
+          <h3 className="font-semibold text-slate-800 mb-4 text-lg">
             More {cat?.name} Puzzles
           </h3>
           <div className="grid grid-cols-2 gap-3">

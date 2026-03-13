@@ -11,9 +11,10 @@ html {
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #fafbfc;
 }
 
 ::selection {
-  background-color: #f59e0b;
+  background-color: #6366f1;
   color: white;
 }

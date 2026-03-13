@@ -102,22 +102,40 @@ export class PuzzleEngine {
   }
 
   private initFreshState() {
-    const canvasW = this.canvas.width;
-    const canvasH = this.canvas.height;
     const { imageWidth, imageHeight, tabSize } = this.config;
 
+    const boardRight = imageWidth + tabSize;
+    const boardBottom = imageHeight + tabSize;
     const margin = tabSize * 2;
-    const playAreaW = imageWidth + margin * 2;
-    const playAreaH = imageHeight + margin * 2;
+
+    const zones: { x: number; y: number; w: number; h: number }[] = [
+      {
+        x: boardRight + margin,
+        y: -margin,
+        w: imageWidth * 0.6,
+        h: imageHeight + margin * 2,
+      },
+      {
+        x: -margin,
+        y: boardBottom + margin,
+        w: imageWidth + margin * 2,
+        h: imageHeight * 0.4,
+      },
+      {
+        x: boardRight + margin,
+        y: boardBottom + margin * 0.5,
+        w: imageWidth * 0.4,
+        h: imageHeight * 0.4,
+      },
+    ];
 
     this.state = {
       pieces: this.definitions.map((def, i) => {
-        const spreadW = playAreaW * 1.5;
-        const spreadH = playAreaH * 1.2;
+        const zone = zones[i % zones.length];
         return {
           id: def.id,
-          x: Math.random() * spreadW - margin,
-          y: Math.random() * spreadH - margin,
+          x: zone.x + Math.random() * zone.w,
+          y: zone.y + Math.random() * zone.h,
           snapped: false,
           groupId: i,
           zIndex: i,
@@ -132,15 +150,17 @@ export class PuzzleEngine {
 
   private fitToCanvas() {
     const { imageWidth, imageHeight, tabSize } = this.config;
-    const totalW = imageWidth + tabSize * 4;
-    const totalH = imageHeight + tabSize * 4;
+    const totalW = imageWidth * 2.0;
+    const totalH = imageHeight * 1.7;
 
-    const scaleX = this.canvas.width / (totalW * 2);
-    const scaleY = this.canvas.height / (totalH * 1.5);
+    const scaleX = this.canvas.width / totalW;
+    const scaleY = this.canvas.height / totalH;
     this.scale = Math.min(scaleX, scaleY, 1);
 
-    this.panX = this.canvas.width * 0.05;
-    this.panY = this.canvas.height * 0.05;
+    const usedW = totalW * this.scale;
+    const usedH = totalH * this.scale;
+    this.panX = (this.canvas.width - usedW) / 2 + tabSize * this.scale;
+    this.panY = (this.canvas.height - usedH) / 2 + tabSize * this.scale;
 
     this.interaction?.setTransform(this.scale, this.panX, this.panY);
   }
@@ -209,6 +229,8 @@ export class PuzzleEngine {
     const { ctx, canvas } = this;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    this.drawBackground();
+
     ctx.save();
     ctx.translate(this.panX, this.panY);
     ctx.scale(this.scale, this.scale);
@@ -216,7 +238,7 @@ export class PuzzleEngine {
     this.drawBoard();
 
     if (this.showPreview && this.image) {
-      ctx.globalAlpha = 0.2;
+      ctx.globalAlpha = 0.25;
       ctx.drawImage(this.image, 0, 0);
       ctx.globalAlpha = 1;
     }
@@ -239,13 +261,60 @@ export class PuzzleEngine {
     ctx.restore();
   }
 
+  private drawBackground() {
+    const { ctx, canvas } = this;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#2d3748");
+    gradient.addColorStop(0.5, "#1a202c");
+    gradient.addColorStop(1, "#171923");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.globalAlpha = 0.03;
+    const dotSpacing = 30;
+    ctx.fillStyle = "#ffffff";
+    for (let x = 0; x < canvas.width; x += dotSpacing) {
+      for (let y = 0; y < canvas.height; y += dotSpacing) {
+        ctx.beginPath();
+        ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
   private drawBoard() {
     const { imageWidth, imageHeight } = this.config;
-    this.ctx.fillStyle = "rgba(0,0,0,0.04)";
-    this.ctx.strokeStyle = "rgba(0,0,0,0.1)";
-    this.ctx.lineWidth = 1;
-    this.ctx.fillRect(0, 0, imageWidth, imageHeight);
-    this.ctx.strokeRect(0, 0, imageWidth, imageHeight);
+    const r = 6;
+
+    this.ctx.save();
+    this.ctx.fillStyle = "rgba(255,255,255,0.06)";
+    this.ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.roundRect(0, 0, imageWidth, imageHeight, r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    this.ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    this.ctx.lineWidth = 0.5;
+    const { pieceWidth, pieceHeight, rows, cols } = this.config;
+    for (let c = 1; c < cols; c++) {
+      const x = c * pieceWidth;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, imageHeight);
+      this.ctx.stroke();
+    }
+    for (let r2 = 1; r2 < rows; r2++) {
+      const y = r2 * pieceHeight;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(imageWidth, y);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
   }
 
   setPreview(show: boolean) {

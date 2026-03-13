@@ -40,18 +40,20 @@ export default async function CategoryPage({ params }: Props) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-sm text-stone-500 mb-4">
-        <Link href="/" className="hover:text-amber-600 transition-colors">Home</Link>
-        <span>/</span>
-        <span className="text-stone-700">{cat.name}</span>
+      <nav className="flex items-center gap-2 text-sm text-slate-400 mb-5">
+        <Link href="/" className="hover:text-indigo-500 transition-colors">Home</Link>
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-slate-600 font-medium">{cat.name}</span>
       </nav>
 
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
           <span className="text-3xl">{cat.icon}</span>
-          <h1 className="text-3xl font-bold text-stone-800">{cat.name} Jigsaw Puzzles</h1>
+          <h1 className="text-3xl font-bold text-slate-800">{cat.name} Jigsaw Puzzles</h1>
         </div>
-        <p className="text-stone-600 leading-relaxed max-w-3xl">
+        <p className="text-slate-500 leading-relaxed max-w-3xl">
           {cat.description}
         </p>
       </div>
@@ -63,7 +65,7 @@ export default async function CategoryPage({ params }: Props) {
 
       {categoryPuzzles.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-stone-500 text-lg">
+          <p className="text-slate-400 text-lg">
             More puzzles coming soon! Check back later.
           </p>
         </div>
@@ -77,10 +79,10 @@ export default async function CategoryPage({ params }: Props) {
 
       {/* SEO Content */}
       <section className="mt-12 max-w-3xl">
-        <h2 className="text-xl font-semibold text-stone-800 mb-3">
+        <h2 className="text-xl font-semibold text-slate-800 mb-3">
           Free {cat.name} Jigsaw Puzzles Online
         </h2>
-        <div className="text-stone-600 leading-relaxed space-y-3 text-sm">
+        <div className="text-slate-500 leading-relaxed space-y-3 text-sm">
           <p>
             Enjoy our collection of free {cat.name.toLowerCase()} jigsaw puzzles
             that you can play online right in your browser. No downloads or
