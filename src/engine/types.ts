@@ -59,6 +59,7 @@ export interface GameState {
   startedAt: number | null;
   score: number;
   lastSnapAt: number | null;
+  trayOpen: boolean;
 }
 
 export const PIECE_PRESETS: Record<number, { rows: number; cols: number }> = {

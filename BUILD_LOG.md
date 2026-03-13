@@ -274,6 +274,24 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
+### Commit 20: Edge Sort Tray (Engagement Plan Phase 2D)
+
+**Engagement Plan Phase 2D — `edge-sort`:**
+
+Real jigsaw solvers always start with edge pieces. This feature lets them do that digitally, reducing frustration on 96/150-piece puzzles and extending session length.
+
+- **`src/engine/types.ts`** — added `trayOpen: boolean` to `GameState` (backward-compat: old saves default to `false`).
+- **`src/engine/PuzzleEngine.ts`** — three additions:
+  - `getTrayMetrics()` private helper: computes tray position/size from `config`. Tray sits below the board with a gap of `tabSize × 2`, height scales with the number of edge piece rows, width equals board width.
+  - `drawTray()` private method: renders a dashed rounded-rect with "Edge Pieces" label in the world-space canvas when `state.trayOpen` is true. Called at the end of `drawBoard()`.
+  - `sortEdges()` public method: identifies all unsnapped flat-edge pieces, sorts them corners-first then row/col order, lays them out in rows in the tray zone at `colStep = pieceWidth + gap` spacing, ungrouping each moved piece (resets `groupId` to its own `def.id`) so they can be dragged independently. Pushes an undo snapshot first so the sort is undoable. Sets `state.trayOpen = true` and persists to localStorage.
+- **`src/components/puzzle/PuzzleControls.tsx`** — added `onSortEdges` prop + amber "Sort Edges" button (grid-layout icon) between the hint button and piece-count selector. Disabled when puzzle is complete.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — added `handleSortEdges` callback wired to `engineRef.current?.sortEdges()`, passed as `onSortEdges` to `PuzzleControls`.
+
+**Build result:** 128 static pages, exit 0.
+
+---
+
 ### Commit 13: Cross-Category Internal Linking + Scoring System (Phase 2.4 + 3.5)
 
 **Phase 2.4 from MISSION.md — `cross-category-linking`:**
@@ -414,6 +432,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **Keyboard shortcuts** — H=hint, Space=toggle preview, F=fullscreen, +/=zoom in, −=zoom out, Ctrl/Cmd+Z=undo; suppressed when focus is inside text inputs
 - **Progress-saved toast** — "✓ Progress saved — come back anytime!" pill appears on first piece snap, auto-dismisses after 4 s
 - **puzzle_abandoned analytics** — GA4 `puzzle_abandoned` event fires on `beforeunload` when user leaves mid-puzzle
+- **Edge sort tray** — "Sort Edges" button moves all unsnapped flat-edge pieces into a labeled dashed tray below the board; corners sorted first; fully undoable; tray persists in localStorage
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)
@@ -427,7 +446,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 Three detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: edge-sort, game-modes, difficulty-rotation, stats-achievements, settings-panel
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: game-modes, difficulty-rotation, stats-achievements, settings-panel
 - `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked), cloudinary-images
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 

@@ -35,6 +35,7 @@ export class PuzzleEngine {
     startedAt: null,
     score: 0,
     lastSnapAt: null,
+    trayOpen: false,
   };
   private interaction: InteractionHandler | null = null;
   private animFrameId: number = 0;
@@ -117,9 +118,10 @@ export class PuzzleEngine {
     } else {
       this.initFreshState();
     }
-    // Ensure backward-compatible saves have score fields
+    // Ensure backward-compatible saves have all fields
     if (this.state.score === undefined) this.state.score = 0;
     if (this.state.lastSnapAt === undefined) this.state.lastSnapAt = null;
+    if (this.state.trayOpen === undefined) this.state.trayOpen = false;
 
     this.userScale = 1;
     this.userPanX = 0;
@@ -193,6 +195,7 @@ export class PuzzleEngine {
       startedAt: null,
       score: 0,
       lastSnapAt: null,
+      trayOpen: false,
     };
   }
 
@@ -618,6 +621,99 @@ export class PuzzleEngine {
       this.ctx.stroke();
     }
     this.ctx.restore();
+
+    if (this.state.trayOpen) {
+      this.drawTray();
+    }
+  }
+
+  private getTrayMetrics() {
+    const { imageWidth, imageHeight, pieceWidth, pieceHeight, tabSize, cols, rows } = this.config;
+    const gap = Math.max(4, tabSize * 0.3);
+    const trayX = 0;
+    const trayY = imageHeight + tabSize * 2;
+    const colStep = pieceWidth + gap;
+    const rowStep = pieceHeight + gap;
+    const piecesPerRow = cols;
+    const totalEdge = (cols + rows - 2) * 2;
+    const numRows = Math.max(1, Math.ceil(totalEdge / piecesPerRow));
+    const trayW = imageWidth;
+    const trayH = numRows * rowStep + tabSize * 2;
+    return { trayX, trayY, trayW, trayH, colStep, rowStep, piecesPerRow, gap, tabSize };
+  }
+
+  private drawTray() {
+    const { trayX, trayY, trayW, trayH, tabSize } = this.getTrayMetrics();
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.04)";
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.roundRect(trayX, trayY, trayW, trayH, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const fontSize = Math.max(10, tabSize * 0.7);
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("Edge Pieces", trayX + 8, trayY + 6);
+    ctx.restore();
+  }
+
+  sortEdges() {
+    if (!this.definitions.length || this.state.completed) return;
+
+    this.pushHistory();
+
+    const { colStep, rowStep, trayX, trayY, piecesPerRow } = this.getTrayMetrics();
+
+    // Identify edge pieces: any edge with type "flat"
+    const edgeDefs = this.definitions.filter(
+      (def) =>
+        def.edges.top.type === "flat" ||
+        def.edges.right.type === "flat" ||
+        def.edges.bottom.type === "flat" ||
+        def.edges.left.type === "flat"
+    );
+
+    const flatCount = (def: PieceDefinition) =>
+      [def.edges.top, def.edges.right, def.edges.bottom, def.edges.left].filter(
+        (e) => e.type === "flat"
+      ).length;
+
+    // Sort: corners (2 flat edges) first, then by row/col
+    edgeDefs.sort((a, b) => {
+      const fa = flatCount(a);
+      const fb = flatCount(b);
+      if (fa !== fb) return fb - fa;
+      if (a.row !== b.row) return a.row - b.row;
+      return a.col - b.col;
+    });
+
+    // Only move unsnapped pieces
+    const toMove = edgeDefs.filter((def) => !this.state.pieces[def.id]?.snapped);
+
+    toMove.forEach((def, i) => {
+      const piece = this.state.pieces[def.id];
+      if (!piece) return;
+      const col = i % piecesPerRow;
+      const row = Math.floor(i / piecesPerRow);
+      piece.x = trayX + col * colStep;
+      piece.y = trayY + row * rowStep;
+      // Ungroup so each piece can be dragged independently
+      piece.groupId = def.id;
+    });
+
+    this.state.trayOpen = true;
+    this.interaction?.updatePieces(this.state.pieces);
+    this.callbacks.onMoveCountUpdate?.(this.state.moveCount);
+    this.saveState();
   }
 
   setPreview(show: boolean) {

@@ -208,6 +208,11 @@ export default function PuzzleCanvas({
     setCanUndo(engineRef.current?.canUndo() ?? false);
   }, []);
 
+  const handleSortEdges = useCallback(() => {
+    engineRef.current?.sortEdges();
+    setCanUndo(engineRef.current?.canUndo() ?? false);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -326,6 +331,7 @@ export default function PuzzleCanvas({
         onResetView={resetView}
         onHint={handleHint}
         onUndo={handleUndo}
+        onSortEdges={handleSortEdges}
       />
 
       <div

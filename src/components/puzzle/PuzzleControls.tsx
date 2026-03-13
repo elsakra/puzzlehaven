@@ -22,6 +22,7 @@ interface PuzzleControlsProps {
   onResetView: () => void;
   onHint: () => void;
   onUndo: () => void;
+  onSortEdges: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -49,6 +50,7 @@ export default function PuzzleControls({
   onResetView,
   onHint,
   onUndo,
+  onSortEdges,
 }: PuzzleControlsProps) {
   const pct =
     progress.total > 0
@@ -132,6 +134,22 @@ export default function PuzzleControls({
               {hintCooldownLeft}
             </span>
           )}
+        </button>
+
+        {/* Sort Edges button */}
+        <button
+          onClick={onSortEdges}
+          disabled={progress.snapped === progress.total && progress.total > 0}
+          className={`p-2.5 rounded-lg border min-h-[40px] min-w-[40px] flex items-center justify-center transition-all ${
+            progress.snapped === progress.total && progress.total > 0
+              ? "bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed"
+              : "bg-amber-50 border-amber-300 text-amber-600 hover:bg-amber-100"
+          }`}
+          title="Sort edge pieces into tray below the board"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+          </svg>
         </button>
 
         <select
