@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import PuzzleCanvas from "@/components/puzzle/PuzzleCanvas";
 import { PIECE_PRESETS } from "@/engine/types";
+import { analytics } from "@/lib/gtag";
 
 export default function CreatePuzzle() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export default function CreatePuzzle() {
     setFileName(file.name);
     const url = URL.createObjectURL(file);
     setImageUrl(url);
+    analytics.customPuzzleCreated();
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -37,6 +39,7 @@ export default function CreatePuzzle() {
     setFileName(file.name);
     const url = URL.createObjectURL(file);
     setImageUrl(url);
+    analytics.customPuzzleCreated();
   }, []);
 
   const handleReset = useCallback(() => {
@@ -78,6 +81,7 @@ export default function CreatePuzzle() {
           imageUrl={imageUrl}
           puzzleId={`custom-${fileName}`}
           puzzleTitle="My Custom Puzzle"
+          puzzleCategory="custom"
           initialPieceCount={pieceCount}
           seed={Date.now()}
         />

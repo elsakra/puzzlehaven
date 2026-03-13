@@ -89,6 +89,7 @@ export default async function PuzzlePage({ params }: Props) {
               imageUrl={puzzle.imageUrl}
               puzzleId={puzzle.id}
               puzzleTitle={puzzle.title}
+              puzzleCategory={category}
               initialPieceCount={48}
               seed={puzzle.id.charCodeAt(0) * 1000 + puzzle.id.charCodeAt(1)}
             />

@@ -34,6 +34,7 @@ export default function DailyPage() {
         imageUrl={puzzle.imageUrl}
         puzzleId={`daily-${seed}`}
         puzzleTitle={puzzle.title}
+        puzzleCategory="daily"
         initialPieceCount={48}
         seed={seed}
       />

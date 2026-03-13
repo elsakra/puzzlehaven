@@ -150,6 +150,24 @@ Three high-impact items from the growth plan implemented in one session:
 
 Finalised the puzzle library at exactly 500 entries with no duplicate slugs or IDs.
 
+### Commit 9: `(pending)` -- Google Analytics 4 (Phase 1.2)
+
+**Phase 1.2 from 20k revenue plan — `add-analytics`:**
+
+- **`src/lib/gtag.ts`** — new utility module. Declares `window.gtag` type globally, exports `GA_MEASUREMENT_ID = "G-PG49JWER6N"`, and exposes a typed `analytics` object with five named helpers:
+  - `analytics.puzzleStart(puzzleId, pieceCount, category)` → `puzzle_start` event
+  - `analytics.puzzleComplete(puzzleId, pieceCount, seconds, moves)` → `puzzle_complete` event
+  - `analytics.pieceCountChange(puzzleId, fromCount, toCount)` → `piece_count_change` event
+  - `analytics.dailyCompleted(date, seconds, pieceCount)` → `daily_completed` event
+  - `analytics.customPuzzleCreated()` → `custom_puzzle_created` event
+- **`src/app/layout.tsx`** — GA4 loader script (`gtag/js`) and inline `gtag('config', ...)` injected immediately after `<head>`, before AdSense.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — `puzzleCategory` prop added; `puzzle_start` fired on init success; `puzzle_complete` + `daily_completed` fired in `onComplete`; `piece_count_change` fired in `handlePieceCountChange`.
+- **`src/app/puzzles/[category]/[slug]/page.tsx`** — passes `puzzleCategory={category}` to `PuzzleCanvas`.
+- **`src/app/daily/page.tsx`** — passes `puzzleCategory="daily"` to `PuzzleCanvas`.
+- **`src/app/create/CreatePuzzle.tsx`** — imports `analytics`, fires `custom_puzzle_created` on both file picker and drag-and-drop handlers; passes `puzzleCategory="custom"` to `PuzzleCanvas`.
+
+**Build result:** 525 static pages, exit 0.
+
 ### Commit 8: `(pending)` -- SEO landing pages + FAQPage schema (Phase 2)
 
 **Phase 2.3 + 2.5 from 20k revenue plan:**
@@ -176,7 +194,7 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 8)
+## Current State (as of commit 9)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -197,17 +215,16 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - Full sitemap (527 URLs: 500 puzzle pages + 8 categories + 5 blog posts + 2 landing pages + static), robots.txt, schema markup
 - Mobile-responsive layout
 - AdSense slot placeholders ready for activation
+- **Google Analytics 4** live (Measurement ID `G-PG49JWER6N`) with 5 custom events: `puzzle_start`, `puzzle_complete`, `piece_count_change`, `daily_completed`, `custom_puzzle_created`
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)
 - **Custom puzzle sharing**: Uses `blob:` URLs that break on refresh/share
-- **Analytics**: Zero tracking -- no GA4 or any analytics (needs GA4 Measurement ID)
 - **No pan/zoom**: 96+ piece puzzles are impractical on mobile
 - **No sound**: Completely silent -- no feedback loop
 - **No undo/hint**: Players have no recourse when stuck
 
 ### Blocked (needs credentials)
-- **GA4 analytics** (`add-analytics`): Needs a GA4 Measurement ID (G-XXXXXXXXXX) from Google Analytics console
 - **Email capture** (`fix-email`): Needs ConvertKit or Buttondown API key
 
 ### Pending Plans

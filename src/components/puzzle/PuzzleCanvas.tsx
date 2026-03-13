@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
 import { updateStreak, markDailyCompleted } from "@/lib/storage";
+import { analytics } from "@/lib/gtag";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
 
@@ -10,6 +11,7 @@ interface PuzzleCanvasProps {
   imageUrl: string;
   puzzleId: string;
   puzzleTitle: string;
+  puzzleCategory?: string;
   initialPieceCount?: number;
   seed?: number;
 }
@@ -18,6 +20,7 @@ export default function PuzzleCanvas({
   imageUrl,
   puzzleId,
   puzzleTitle,
+  puzzleCategory = "unknown",
   initialPieceCount = 48,
   seed,
 }: PuzzleCanvasProps) {
@@ -66,10 +69,12 @@ export default function PuzzleCanvas({
           setCompleted(true);
           setTimer(secs);
           setMoves(mvs);
+          analytics.puzzleComplete(puzzleId, count, secs, mvs);
           if (puzzleId.startsWith("daily-")) {
             updateStreak();
             const today = new Date().toISOString().split("T")[0];
             markDailyCompleted(today, secs, count);
+            analytics.dailyCompleted(today, secs, count);
           }
         },
         onProgress: (snapped, total) => setProgress({ snapped, total }),
@@ -78,13 +83,14 @@ export default function PuzzleCanvas({
       try {
         await engine.init(imageUrl, count, puzzleId, seed);
         engineRef.current = engine;
+        analytics.puzzleStart(puzzleId, count, puzzleCategory);
       } catch (err) {
         console.error("Failed to init puzzle engine:", err);
       } finally {
         setLoading(false);
       }
     },
-    [imageUrl, puzzleId, seed, sizeCanvas]
+    [imageUrl, puzzleId, puzzleCategory, seed, sizeCanvas]
   );
 
   useEffect(() => {
@@ -135,9 +141,13 @@ export default function PuzzleCanvas({
     }
   }, [sizeCanvas]);
 
-  const handlePieceCountChange = useCallback((count: number) => {
-    setPieceCount(count);
-  }, []);
+  const handlePieceCountChange = useCallback(
+    (count: number) => {
+      analytics.pieceCountChange(puzzleId, pieceCount, count);
+      setPieceCount(count);
+    },
+    [puzzleId, pieceCount]
+  );
 
   const handleNewGame = useCallback(() => {
     setCompleted(false);
