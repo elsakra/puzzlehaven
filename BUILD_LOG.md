@@ -274,7 +274,65 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 
 ---
 
-## Current State (as of commit 12)
+### Commit 13: Cross-Category Internal Linking + Scoring System (Phase 2.4 + 3.5)
+
+**Phase 2.4 from MISSION.md — `cross-category-linking`:**
+
+- **`src/data/puzzles.ts`** — new `getCrossCategory(currentCategory, puzzleId, count)` helper. Uses a deterministic hash of the puzzle ID to pick one puzzle from each of 4 other categories, giving different suggestions per page while staying stable for SSG.
+- **`src/app/puzzles/[category]/[slug]/page.tsx`** — added "You Might Also Like" section at the bottom of every puzzle play page showing 4 cross-category puzzle cards in a 4-column grid (2-col on mobile). Creates ~2,000 new cross-category internal links across the 500 SSG pages, strengthening topical authority and pages-per-session.
+
+**Phase 3.5 from MISSION.md + engagement plan 1C — `scoring-system`:**
+
+- **`src/engine/types.ts`** — added `score: number` and `lastSnapAt: number | null` to `GameState` (backward-compatible: older saves default to 0/null on load).
+- **`src/engine/PuzzleEngine.ts`** — `onScoreUpdate?: (score: number) => void` callback added to `PuzzleCallbacks`. Scoring logic in `onPieceSnap`: +10 per snap, +50 combo bonus if snap occurs within 5 s of previous snap. `onGroupMerge`: +5 per group merge. Score fired on init, on every snap/merge, and on undo (restores pre-move score from snapshot). Initial class-body state declaration updated with new fields.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — `score` state wired to `onScoreUpdate`, reset to 0 on new game, passed to `PuzzleControls`.
+- **`src/components/puzzle/PuzzleControls.tsx`** — amber star-badge pill (hidden at 0, visible once first snap) displays current score with `toLocaleString()` formatting and tabular-nums.
+
+**Build result:** 526 static pages, exit 0.
+
+---
+
+### Commit 15: AdSense Integration + Ad Slot Placements (Phase 4.1)
+
+**Phase 4.1 from MISSION.md — `add-ad-slots`:**
+
+- **`.env.local`** — `NEXT_PUBLIC_ADSENSE_ID` set to `ca-pub-5593486984619998`. This activates the AdSense publisher script (already wired in `layout.tsx`) on every page. Google Auto Ads will now serve ads site-wide while the site awaits manual ad unit creation.
+
+- **`src/components/layout/AdSlot.tsx`** — Refactored from using invalid `data-ad-slot="auto"` to a proper three-state component:
+  1. No `NEXT_PUBLIC_ADSENSE_ID` → labelled dev placeholder (old behaviour)
+  2. Publisher ID set but no `slotId` prop → invisible reserved space div (Auto Ads fills this)
+  3. Both publisher ID and `slotId` present → full `<ins>` tag + push script for manual ad units
+
+- **`src/app/page.tsx`** — Added `<AdSlot format="leaderboard" />` in a centred row between the "Browse by category" section and the "Popular puzzles" section. This is the highest-visibility real estate on the homepage and was previously serving zero ads.
+
+- **`src/app/puzzles/[category]/[slug]/page.tsx`** — Two new ad placements:
+  - Leaderboard (`format="leaderboard"`) inserted immediately below `PuzzleCanvas`, outside the active play area, above the "About This Puzzle" card.
+  - Mobile banner (`format="mobile-banner"`) in the mobile-only related-puzzles area, shown on screens < lg where the sidebar ad does not appear.
+
+**AdSense site review:** The publisher script (`ca-pub-5593486984619998`) is now present in every page's `<head>` via `layout.tsx`. Click "I've placed the code" in the AdSense dashboard to trigger the site review. Once approved, create ad units in AdSense and pass their slot IDs as `slotId` props to `<AdSlot>` to activate manual placements.
+
+**Build result:** 324 static pages, exit 0.
+
+---
+
+### Commit 14: Snap Animations + Play Next Flow (Engagement Plan Phase 1B + 4D)
+
+**Engagement Plan Phase 1B — `snap-animation`:**
+
+- **`src/engine/AnimationManager.ts`** (new) — Manages two animation systems: lerp-based snap animations (`addSnap()`/`getVisualPos()`) and floating score text (`addFloatingText()`/`getActiveFloats()`). Snap animation: 180ms ease-out-quad from pre-snap position to correct board position. Floating text: 900ms upward drift with alpha fade.
+- **`src/engine/InteractionHandler.ts`** — Added `liftedPieceId: number | null` public field (set on pointer-down hit, cleared on pointer-up/cancel). Added `onSnapAnimate` callback type and wiring. In `trySnap()`, captures `fromX/fromY` for all group pieces BEFORE teleporting, then fires `onSnapAnimate` with the delta data — logical positions update immediately (for correct merge detection) while the AnimationManager provides the visual lerp.
+- **`src/engine/PuzzleEngine.ts`** — Instantiates `AnimationManager`. Wires `interaction.onSnapAnimate → anim.addSnap()`. In `onPieceSnap` callback: adds floating text at the piece's correct board-center position (`+10` amber or `+N Combo!` gold for consecutive snaps within 5 s). `draw()` updated: each piece checks `anim.getVisualPos(piece.id)` and renders at lerped position when animating; lifted group pieces rendered with `ctx.scale(1.05, 1.05)` + stronger drop shadow. New `drawFloatingTexts()` method renders drifting score labels with inverse-scale font sizing so labels stay a constant ~13–15px on screen regardless of zoom level. `undo()` calls `anim.clear()` to drop stale animations after state restore.
+
+**Engagement Plan Phase 4D — `play-next-flow`:**
+
+- **`src/components/puzzle/CompletionModal.tsx`** — Replaced single `onNewGame` prop with four: `onPlayAgain`, `onNextPuzzle` (nullable), `onRandomPuzzle`, `onTryHarder` (nullable). Stats row expanded from 3 boxes to 4 (Time / Score / Pieces / Moves). Action buttons: 2×2 grid — "↺ Play Again" | "→ Next Puzzle" (or "🎲 Random" when no next) on row 1; "🎲 Random Puzzle" | "↑ Try Harder" (disabled/greyed at 150 pieces) on row 2 — above the existing Share/Copy buttons. Share text now includes the score.
+- **`src/components/puzzle/PuzzleCanvas.tsx`** — Imports `puzzles` data and `PIECE_PRESETS`. `handlePlayAgain` (replaces `handleNewGame`). `handleNextPuzzle()` looks up the current puzzle by id, finds the next in the same category (wraps), returns a navigation closure or null for daily/custom puzzles. `handleRandomPuzzle()` picks a random puzzle from the full catalog. `handleTryHarder()` returns a closure that bumps `pieceCount` to the next tier (24→48→96→150) or null at max. All nav uses `window.location.href` for full-page navigations.
+
+**Build result:** 526 static pages, exit 0.
+
+---
+
+## Current State (as of commit 15)
 
 ### What works
 - Fully playable jigsaw puzzles at 24, 48, 96, and 150 pieces
@@ -286,10 +344,14 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **Custom puzzle sharing** — photos upload to Cloudinary, generates a permanent `/play/[publicId]` URL that anyone can open
 - **Hint system** — lightbulb button highlights the closest unsnapped piece with a pulsing golden glow + target crosshair; 10 s cooldown with countdown badge
 - **Undo system** — ↩ button and Ctrl+Z / Cmd+Z restore last piece position; snapshot-based history (max 50 moves)
+- **Scoring system** — +10 per snap, +50 combo bonus for consecutive snaps within 5 s, +5 per group merge; amber star badge appears in controls after first snap; score persists in localStorage with game state
+- **Snap animations** — pieces slide (ease-out-quad, 180ms) to correct board position on snap; dragged pieces lift with 1.05× scale + deeper drop shadow; floating amber "+10" / gold "+N Combo!" labels drift upward from each snap point and fade out
+- **Play Next flow** — completion modal shows 4-stat row (Time/Score/Pieces/Moves), 2×2 action grid (Play Again / Next Puzzle / Random Puzzle / Try Harder), plus Share/Copy
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
 - **500 puzzles** across 8 categories (animals, nature, landscapes, art, food, travel, holidays, abstract)
+- **"You Might Also Like"** cross-category section on every puzzle page — 4 puzzles from other categories, deterministically varied; ~2,000 cross-category internal links across the site
 - **Blog index page** at `/blog` listing all 5 articles with SEO metadata
 - 5 SEO blog post articles
 - **`/free-jigsaw-puzzles`** landing page — targets #1 head keyword, 12 featured puzzles, 600+ word SEO content, FAQPage schema
@@ -302,12 +364,15 @@ Renamed brand from **PuzzleHaven** → **Online Jigsaws** across entire codebase
 - **Google Analytics 4** live (Measurement ID `G-PG49JWER6N`) with 5 custom events
 - **Canvas pan/zoom** — mouse wheel zoom, pinch-to-zoom on mobile, drag-to-pan on empty canvas, "Reset View" button appears when view is transformed
 - **Web Audio sound effects** — pickup pop, snap chime, group-merge resonance, completion arpeggio; mute toggle persisted to localStorage
+- **AdSense live** (`ca-pub-5593486984619998`) — publisher script in every page `<head>`; leaderboard on homepage between categories/popular, leaderboard below puzzle canvas, mobile banner in mobile related-puzzles area; site submitted for Google review
 
 ### What does NOT work
 - **Email capture**: Form submits to nowhere (no backend integration)
+- **Manual ad units**: AdSlot components currently show invisible reserved space until real slot IDs are created in the AdSense dashboard and passed as `slotId` props. Google Auto Ads will serve ads automatically in the meantime.
 
-### Blocked (needs credentials)
+### Blocked (needs credentials / external action)
 - **Email capture** (`fix-email`): Needs ConvertKit or Buttondown API key
+- **Manual AdSense ad units**: After site review approval, create ad units in AdSense dashboard → get slot IDs → pass as `slotId` prop to each `<AdSlot>` component
 
 ### Pending Plans
 

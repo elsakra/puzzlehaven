@@ -2,10 +2,14 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
+import { PIECE_PRESETS } from "@/engine/types";
 import { updateStreak, markDailyCompleted } from "@/lib/storage";
 import { analytics } from "@/lib/gtag";
+import { puzzles } from "@/data/puzzles";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
+
+const PIECE_TIERS = Object.keys(PIECE_PRESETS).map(Number).sort((a, b) => a - b);
 
 interface HintState {
   available: boolean;
@@ -36,6 +40,7 @@ export default function PuzzleCanvas({
 
   const [timer, setTimer] = useState(0);
   const [moves, setMoves] = useState(0);
+  const [score, setScore] = useState(0);
   const [progress, setProgress] = useState({ snapped: 0, total: 0 });
   const [completed, setCompleted] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -68,6 +73,7 @@ export default function PuzzleCanvas({
       setTimer(0);
       setMoves(0);
       setProgress({ snapped: 0, total: 0 });
+      setScore(0);
       setIsViewTransformed(false);
       setCanUndo(false);
       setHintState({ available: false, cooldownLeft: 0 });
@@ -94,6 +100,7 @@ export default function PuzzleCanvas({
         },
         onProgress: (snapped, total) => setProgress({ snapped, total }),
         onTransformChange: setIsViewTransformed,
+        onScoreUpdate: setScore,
       });
 
       // Sync initial mute state from the new engine
@@ -210,16 +217,45 @@ export default function PuzzleCanvas({
     [puzzleId, pieceCount]
   );
 
-  const handleNewGame = useCallback(() => {
+  const handlePlayAgain = useCallback(() => {
     setCompleted(false);
     initEngine(pieceCount);
   }, [pieceCount, initEngine]);
+
+  // Navigate to the next puzzle in the same category (wraps around)
+  const handleNextPuzzle = useCallback((): (() => void) | null => {
+    const currentPuzzle = puzzles.find((p) => p.id === puzzleId);
+    if (!currentPuzzle) return null;
+    const categoryPuzzles = puzzles.filter((p) => p.category === currentPuzzle.category);
+    const idx = categoryPuzzles.findIndex((p) => p.id === puzzleId);
+    if (idx === -1) return null;
+    const next = categoryPuzzles[(idx + 1) % categoryPuzzles.length];
+    return () => {
+      window.location.href = `/puzzles/${next.category}/${next.slug}`;
+    };
+  }, [puzzleId]);
+
+  const handleRandomPuzzle = useCallback(() => {
+    const pool = puzzles.filter((p) => p.id !== puzzleId);
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    window.location.href = `/puzzles/${pick.category}/${pick.slug}`;
+  }, [puzzleId]);
+
+  const handleTryHarder = useCallback((): (() => void) | null => {
+    const idx = PIECE_TIERS.indexOf(pieceCount);
+    if (idx === -1 || idx >= PIECE_TIERS.length - 1) return null;
+    const nextTier = PIECE_TIERS[idx + 1];
+    return () => {
+      handlePieceCountChange(nextTier);
+    };
+  }, [pieceCount, handlePieceCountChange]);
 
   return (
     <div ref={containerRef} className="relative w-full flex flex-col gap-3">
       <PuzzleControls
         timer={timer}
         moves={moves}
+        score={score}
         progress={progress}
         pieceCount={pieceCount}
         showPreview={showPreview}
@@ -263,9 +299,13 @@ export default function PuzzleCanvas({
         <CompletionModal
           timer={timer}
           moves={moves}
+          score={score}
           pieceCount={pieceCount}
           puzzleTitle={puzzleTitle}
-          onNewGame={handleNewGame}
+          onPlayAgain={handlePlayAgain}
+          onNextPuzzle={handleNextPuzzle()}
+          onRandomPuzzle={handleRandomPuzzle}
+          onTryHarder={handleTryHarder()}
         />
       )}
     </div>

@@ -846,6 +846,34 @@ export function getPuzzlesByCategory(category: string): Puzzle[] {
   return puzzles.filter((p) => p.category === category);
 }
 
+/** Return one puzzle from each of `count` other categories, deterministically varied by puzzleId. */
+export function getCrossCategory(
+  currentCategory: string,
+  puzzleId: string,
+  count: number = 4
+): Puzzle[] {
+  // Simple deterministic hash so SSG pages always get the same suggestions
+  let hash = 0;
+  for (let i = 0; i < puzzleId.length; i++) {
+    hash = (hash * 31 + puzzleId.charCodeAt(i)) & 0x7fffffff;
+  }
+
+  const otherCategories = Array.from(new Set(puzzles.map((p) => p.category))).filter(
+    (c) => c !== currentCategory
+  );
+  // Rotate the category list so different puzzle pages highlight different categories first
+  const offset = hash % otherCategories.length;
+  const rotated = [
+    ...otherCategories.slice(offset),
+    ...otherCategories.slice(0, offset),
+  ];
+
+  return rotated.slice(0, count).map((cat) => {
+    const catPuzzles = puzzles.filter((p) => p.category === cat);
+    return catPuzzles[hash % catPuzzles.length];
+  });
+}
+
 export function getFeaturedPuzzles(count: number = 8): Puzzle[] {
   const shuffled = [...puzzles].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);

@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "puzzlehaven.vercel.app" }],
+      "destination": "https://online-jigsaws.com/$1",
+      "permanent": true
+    }
+  ]
+}

@@ -19,8 +19,8 @@ export default function EmailForm({ className = "", dark }: { className?: string
         type="submit"
         className={`px-5 py-2.5 text-sm font-semibold rounded-xl min-h-[44px] w-full sm:w-auto transition-all ${
           dark
-            ? "bg-white text-indigo-700 hover:bg-indigo-50 shadow-lg"
-            : "bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-sm"
+            ? "bg-white text-slate-900 hover:bg-slate-50 shadow-lg"
+            : "bg-slate-900 text-white hover:bg-slate-800"
         }`}
       >
         Subscribe

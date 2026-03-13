@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import PuzzleCanvas from "@/components/puzzle/PuzzleCanvas";
 import PuzzleCard from "@/components/PuzzleCard";
 import AdSlot from "@/components/layout/AdSlot";
-import { puzzles, getPuzzleBySlug, getPuzzlesByCategory } from "@/data/puzzles";
+import { puzzles, getPuzzleBySlug, getPuzzlesByCategory, getCrossCategory } from "@/data/puzzles";
 import { getCategoryBySlug } from "@/data/categories";
 import Link from "next/link";
 
@@ -44,6 +44,8 @@ export default async function PuzzlePage({ params }: Props) {
   const related = getPuzzlesByCategory(category)
     .filter((p) => p.id !== puzzle.id)
     .slice(0, 4);
+
+  const crossCategory = getCrossCategory(category, puzzle.id, 4);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -94,7 +96,12 @@ export default async function PuzzlePage({ params }: Props) {
               seed={puzzle.id.charCodeAt(0) * 1000 + puzzle.id.charCodeAt(1)}
             />
 
-            <div className="mt-8 bg-white rounded-2xl border border-slate-200/80 p-6">
+            {/* Ad below canvas — outside active play area */}
+            <div className="mt-5 flex justify-center">
+              <AdSlot format="leaderboard" />
+            </div>
+
+            <div className="mt-6 bg-white rounded-2xl border border-slate-200/80 p-6">
               <h2 className="text-lg font-semibold text-slate-800 mb-2">
                 About This Puzzle
               </h2>
@@ -123,11 +130,26 @@ export default async function PuzzlePage({ params }: Props) {
         </div>
 
         <div className="lg:hidden mt-10">
+          {/* Mobile ad — below canvas on smaller screens */}
+          <div className="mb-6 flex justify-center">
+            <AdSlot format="mobile-banner" />
+          </div>
           <h3 className="font-semibold text-slate-800 mb-4 text-lg">
             More {cat?.name} Puzzles
           </h3>
           <div className="grid grid-cols-2 gap-3">
             {related.map((p) => (
+              <PuzzleCard key={p.id} puzzle={p} />
+            ))}
+          </div>
+        </div>
+
+        {/* You Might Also Like — cross-category internal links */}
+        <div className="mt-12 border-t border-slate-200 pt-10">
+          <h2 className="text-xl font-bold text-slate-800 mb-1">You Might Also Like</h2>
+          <p className="text-sm text-slate-400 mb-6">Free jigsaw puzzles from other categories</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {crossCategory.map((p) => (
               <PuzzleCard key={p.id} puzzle={p} />
             ))}
           </div>

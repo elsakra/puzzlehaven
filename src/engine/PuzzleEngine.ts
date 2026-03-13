@@ -9,6 +9,7 @@ import { generatePieces } from "./PieceGenerator";
 import { renderAllPieces, RenderedPiece } from "./PieceRenderer";
 import { InteractionHandler } from "./InteractionHandler";
 import { SoundManager } from "./SoundManager";
+import { AnimationManager } from "./AnimationManager";
 
 export interface PuzzleCallbacks {
   onTimerUpdate?: (seconds: number) => void;
@@ -16,6 +17,7 @@ export interface PuzzleCallbacks {
   onComplete?: (seconds: number, moves: number) => void;
   onProgress?: (snapped: number, total: number) => void;
   onTransformChange?: (isTransformed: boolean) => void;
+  onScoreUpdate?: (score: number) => void;
 }
 
 export class PuzzleEngine {
@@ -31,6 +33,8 @@ export class PuzzleEngine {
     moveCount: 0,
     completed: false,
     startedAt: null,
+    score: 0,
+    lastSnapAt: null,
   };
   private interaction: InteractionHandler | null = null;
   private animFrameId: number = 0;
@@ -55,6 +59,7 @@ export class PuzzleEngine {
   private panY: number = 0;
 
   private sound: SoundManager;
+  private anim: AnimationManager;
 
   // Hint system
   private hintPieceId: number | null = null;
@@ -72,6 +77,7 @@ export class PuzzleEngine {
     this.ctx = canvas.getContext("2d")!;
     if (callbacks) this.callbacks = callbacks;
     this.sound = new SoundManager();
+    this.anim = new AnimationManager();
   }
 
   async init(
@@ -107,6 +113,9 @@ export class PuzzleEngine {
     } else {
       this.initFreshState();
     }
+    // Ensure backward-compatible saves have score fields
+    if (this.state.score === undefined) this.state.score = 0;
+    if (this.state.lastSnapAt === undefined) this.state.lastSnapAt = null;
 
     this.userScale = 1;
     this.userPanX = 0;
@@ -121,6 +130,7 @@ export class PuzzleEngine {
     );
     this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
     this.callbacks.onMoveCountUpdate?.(this.state.moveCount);
+    this.callbacks.onScoreUpdate?.(this.state.score);
   }
 
   private loadImage(url: string): Promise<HTMLImageElement> {
@@ -177,6 +187,8 @@ export class PuzzleEngine {
       moveCount: 0,
       completed: false,
       startedAt: null,
+      score: 0,
+      lastSnapAt: null,
     };
   }
 
@@ -286,9 +298,31 @@ export class PuzzleEngine {
       this.saveState();
     };
 
-    this.interaction.onPieceSnap = () => {
+    this.interaction.onSnapAnimate = (data) => {
+      this.anim.addSnap(data);
+    };
+
+    this.interaction.onPieceSnap = (pieceId: number) => {
       const snapped = this.state.pieces.filter((p) => p.snapped).length;
       this.callbacks.onProgress?.(snapped, this.state.pieces.length);
+
+      // Scoring: +10 per snap; +50 combo bonus if snapped within 5 s of last snap
+      const now = Date.now();
+      let points = 10;
+      const isCombo = this.state.lastSnapAt !== null && now - this.state.lastSnapAt < 5000;
+      if (isCombo) points += 50;
+      this.state.score += points;
+      this.state.lastSnapAt = now;
+      this.callbacks.onScoreUpdate?.(this.state.score);
+
+      // Floating score text at piece's correct board position
+      const def = this.definitions[pieceId];
+      if (def) {
+        const tx = def.correctX + def.width / 2;
+        const ty = def.correctY + def.height / 2;
+        this.anim.addFloatingText(isCombo ? `+${points} Combo!` : `+${points}`, tx, ty, isCombo);
+      }
+
       this.saveState();
 
       if (snapped === this.state.pieces.length) {
@@ -306,6 +340,9 @@ export class PuzzleEngine {
     };
 
     this.interaction.onGroupMerge = () => {
+      // +5 per group merge
+      this.state.score += 5;
+      this.callbacks.onScoreUpdate?.(this.state.score);
       this.sound.merge();
     };
 
@@ -359,23 +396,86 @@ export class PuzzleEngine {
       ctx.globalAlpha = 1;
     }
 
-    const sorted = [...this.state.pieces].sort(
-      (a, b) => a.zIndex - b.zIndex
-    );
+    const sorted = [...this.state.pieces].sort((a, b) => a.zIndex - b.zIndex);
+
+    // Determine which group is being lifted for the scale effect
+    const liftedId = this.interaction?.liftedPieceId ?? null;
+    const liftedGroupId =
+      liftedId !== null ? (this.state.pieces[liftedId]?.groupId ?? null) : null;
 
     for (const piece of sorted) {
       const rp = this.rendered[piece.id];
       if (!rp) continue;
-      ctx.drawImage(
-        rp.canvas as HTMLCanvasElement,
-        piece.x - rp.offsetX,
-        piece.y - rp.offsetY
-      );
+
+      // Use animated visual position (lerp to snap target) or logical position
+      const visual = this.anim.getVisualPos(piece.id);
+      const px = visual?.x ?? piece.x;
+      const py = visual?.y ?? piece.y;
+      const drawX = px - rp.offsetX;
+      const drawY = py - rp.offsetY;
+
+      const isLifted = liftedGroupId !== null && piece.groupId === liftedGroupId;
+
+      if (isLifted) {
+        const def = this.definitions[piece.id];
+        const cx = px + (def?.width ?? 0) / 2;
+        const cy = py + (def?.height ?? 0) / 2;
+        ctx.save();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 20 / this.scale;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 6 / this.scale;
+        ctx.translate(cx, cy);
+        ctx.scale(1.05, 1.05);
+        ctx.translate(-cx, -cy);
+        ctx.drawImage(rp.canvas as HTMLCanvasElement, drawX, drawY);
+        ctx.restore();
+      } else {
+        ctx.drawImage(rp.canvas as HTMLCanvasElement, drawX, drawY);
+      }
     }
 
     this.drawHint(ctx);
+    this.drawFloatingTexts(ctx);
 
     ctx.restore();
+  }
+
+  private drawFloatingTexts(ctx: CanvasRenderingContext2D) {
+    const floats = this.anim.getActiveFloats();
+    if (floats.length === 0) return;
+
+    const now = performance.now();
+    for (const ft of floats) {
+      const elapsed = now - ft.startTime;
+      const progress = elapsed / ft.duration;
+      // Fade out over the second half; keep full opacity the first half
+      const alpha = Math.max(0, 1 - progress * 2);
+      if (alpha <= 0) continue;
+
+      // Drift upward 50 world units over the animation lifetime
+      const driftY = progress * 50;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Keep font size constant in screen pixels regardless of world zoom
+      const screenPx = ft.isCombo ? 15 : 13;
+      const worldPx = Math.round(screenPx / this.scale);
+      ctx.font = `bold ${worldPx}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Legibility shadow
+      ctx.shadowColor = "rgba(0,0,0,0.7)";
+      ctx.shadowBlur = 4 / this.scale;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 1 / this.scale;
+
+      ctx.fillStyle = ft.isCombo ? "#ffd700" : "#fbbf24";
+      ctx.fillText(ft.text, ft.worldX, ft.worldY - driftY);
+      ctx.restore();
+    }
   }
 
   private drawHint(ctx: CanvasRenderingContext2D) {
@@ -555,6 +655,7 @@ export class PuzzleEngine {
     if (this.moveHistory.length === 0) return;
     const prev = this.moveHistory.pop()!;
     this.state = prev;
+    this.anim.clear();
     this.interaction?.updatePieces(this.state.pieces);
     this.callbacks.onProgress?.(
       this.state.pieces.filter((p) => p.snapped).length,
@@ -562,6 +663,7 @@ export class PuzzleEngine {
     );
     this.callbacks.onTimerUpdate?.(this.state.timerSeconds);
     this.callbacks.onMoveCountUpdate?.(this.state.moveCount);
+    this.callbacks.onScoreUpdate?.(this.state.score);
     this.saveState();
   }
 
@@ -610,6 +712,7 @@ export class PuzzleEngine {
     this.stopTimer();
     this.interaction?.destroy();
     this.sound.destroy();
+    this.anim.clear();
   }
 
   getState(): GameState {

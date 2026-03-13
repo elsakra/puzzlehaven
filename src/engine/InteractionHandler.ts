@@ -1,5 +1,6 @@
 import { PieceState, PieceDefinition, PuzzleConfig } from "./types";
 import { RenderedPiece } from "./PieceRenderer";
+import type { SnapAnimData } from "./AnimationManager";
 
 const SNAP_THRESHOLD = 15;
 const MIN_SCALE = 0.02;
@@ -43,6 +44,10 @@ export class InteractionHandler {
   onDragStart: (() => void) | null = null;
   onInteractionStart: (() => void) | null = null;
   onTransformChange: ((scale: number, panX: number, panY: number) => void) | null = null;
+  onSnapAnimate: ((data: SnapAnimData[]) => void) | null = null;
+
+  /** The id of the piece currently being dragged (or null when not dragging). */
+  liftedPieceId: number | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -192,6 +197,7 @@ export class InteractionHandler {
       const maxZ = Math.max(...this.pieces.map((p) => p.zIndex));
       groupPieces.forEach((p) => { p.zIndex = maxZ + 1; });
 
+      this.liftedPieceId = hitId;
       this.onDragStart?.();
       this.drag = {
         pieceId: hitId,
@@ -275,6 +281,7 @@ export class InteractionHandler {
     this.activePointers.delete(e.pointerId);
 
     if (wasMode === "dragging" && this.drag) {
+      this.liftedPieceId = null;
       for (const id of this.drag.groupIds) {
         this.trySnap(id);
       }
@@ -293,6 +300,7 @@ export class InteractionHandler {
   private onPointerCancel = (e: PointerEvent) => {
     this.activePointers.delete(e.pointerId);
     if (this.mode === "dragging" && this.drag) {
+      this.liftedPieceId = null;
       this.drag = null;
       this.onPieceMove?.();
     }
@@ -327,12 +335,22 @@ export class InteractionHandler {
       const offsetX = def.correctX - piece.x;
       const offsetY = def.correctY - piece.y;
 
+      // Capture pre-snap positions for smooth animation before teleporting
+      const animData: SnapAnimData[] = groupPieces.map((gp) => ({
+        pieceId: gp.id,
+        fromX: gp.x,
+        fromY: gp.y,
+        toX: gp.x + offsetX,
+        toY: gp.y + offsetY,
+      }));
+
       for (const gp of groupPieces) {
         gp.x += offsetX;
         gp.y += offsetY;
         gp.snapped = true;
       }
 
+      this.onSnapAnimate?.(animData);
       this.onPieceSnap?.(pieceId);
     }
   }
