@@ -4,7 +4,7 @@ export const GA_MEASUREMENT_ID = "G-PG49JWER6N";
 declare global {
   interface Window {
     gtag: (
-      command: "config" | "event" | "js" | "set",
+      command: "config" | "event" | "js" | "set" | "consent",
       targetId: string | Date,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       params?: Record<string, any>

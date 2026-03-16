@@ -95,6 +95,47 @@ The puzzle engine is a standalone Canvas 2D system with no library dependencies:
 
 ## Build Timeline
 
+### Commit 27: Cookie Consent Banner + Core Web Vitals (Phase 4.4 + 6.3)
+
+**Two MISSION.md todos completed in one session:**
+
+---
+
+#### 1. GDPR/CCPA Cookie Consent with Google Consent Mode v2 (MISSION.md Phase 4.4)
+
+**New `src/components/layout/CookieConsent.tsx`** — Client-only consent banner:
+- Fixed bottom bar, shown only on first visit (checks `oj_consent` key in localStorage)
+- Two buttons: **Accept All** (amber CTA, 44px touch target for 65+ audience) and **Essential Only**
+- On accept: calls `window.gtag('consent', 'update', { analytics_storage: 'granted', ad_storage: 'granted', ad_personalization: 'granted', ad_user_data: 'granted' })`
+- On reject: updates all four signals to `'denied'`
+- On subsequent visits: silently re-applies stored preference — no banner shown
+
+**`src/app/layout.tsx`** — Two additions:
+- **Consent Mode v2 default script** — fires BEFORE the GA4 `gtag('config', ...)` call. Defaults all four consent signals to `'denied'` with a 500ms `wait_for_update` window for the banner to resolve. This is a Google requirement for Consent Mode v2 compliance.
+- **`<CookieConsent />`** mounted in `<body>` after `<ServiceWorkerRegistration />`
+
+**`src/lib/gtag.ts`** — Added `"consent"` to the `gtag` command union type (was missing, caused build error).
+
+**Why this matters:** Ezoic, Mediavine, and Raptive all require a GDPR/CCPA-compliant Consent Management Platform (CMP) before approving a site. Without Consent Mode v2, Google may downgrade ad fill rates for EU traffic. This implementation covers US CCPA (opt-out model) and EU GDPR (opt-in model) in a single lightweight component with no third-party CMP script.
+
+---
+
+#### 2. Core Web Vitals — Preconnect Headers (MISSION.md Phase 6.3)
+
+**`src/app/layout.tsx`** — Four resource hints added to `<head>`:
+- `<link rel="preconnect" href="https://res.cloudinary.com" />` — Cloudinary CDN (all 103 puzzle images). Eliminates the DNS lookup + TCP handshake + TLS negotiation latency on the first image request.
+- `<link rel="preconnect" href="https://www.googletagmanager.com" />` — GA4 script origin. GA4's async `gtag/js` script already loads without blocking render, but the preconnect means the connection is warm by the time the script fires.
+- `<link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />` — AdSense. DNS-prefetch (vs full preconnect) is intentional here since AdSense loads late and a persistent TCP connection would be wasted.
+- `<link rel="dns-prefetch" href="https://fonts.gstatic.com" crossOrigin="anonymous" />` — Google Fonts static assets (served by `next/font/google`).
+
+**Image lazy loading already correct:** `PuzzleCard.tsx` uses `next/image` with `fill`, `sizes`, and a `priority` prop — lazy loading is handled automatically by Next.js for all below-fold images.
+
+---
+
+**Build result:** All static pages + dynamic routes, exit 0.
+
+---
+
 ### Commit 26: Challenge a Friend + PWA (Phase 5.4 + 6.2)
 
 **Two MISSION.md todos completed in one session:**
@@ -651,7 +692,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 26)
+## Current State (as of commit 27)
 
 ### What works
 - **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
@@ -695,6 +736,11 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - **Mobile scroll fix** — `touch-action: none` applied via inline JSX style on both the canvas element and its container div, preventing page-scroll from hijacking drag gestures on mobile
 - **Mobile canvas size** — canvas container uses `aspect-square` on mobile (375×375px on a 375px phone, +33% height vs before) and `aspect-[4/3]` on sm+ screens
 
+### What works (additions in commit 27)
+- **Cookie consent banner** (`CookieConsent.tsx`) — GDPR/CCPA compliant fixed bottom bar with Accept All / Essential Only buttons; stores choice in `oj_consent` localStorage key; silently re-applies on return visits; large 44px touch targets for 65+ audience
+- **Google Consent Mode v2** — `gtag('consent', 'default', {...})` fires before GA4 config, defaulting all signals to `'denied'`; `gtag('consent', 'update', {...})` fires when user makes a choice; ad networks will now serve personalized ads to consenting users and non-personalized ads to others (higher fill rate than no CMP at all)
+- **Core Web Vitals preconnect** — `res.cloudinary.com` (preconnect), `www.googletagmanager.com` (preconnect), `pagead2.googlesyndication.com` (dns-prefetch), `fonts.gstatic.com` (dns-prefetch) all declared in `<head>`; reduces first-paint latency for puzzle images
+
 ### What works (additions in commit 26)
 - **"Challenge a Friend"** — completion modal shows amber gradient "🏆 Challenge a Friend" button; generates `?c=<base64>` URL encoding time/pieces/score/stars; recipient sees challenge banner above puzzle; after solving, modal shows side-by-side win/loss comparison (time + score vs challenger)
 - **PWA / "Add to Home Screen"** — `/manifest.webmanifest` (name, icons, standalone display, amber theme color); service worker at `/sw.js` with cache-first for static assets, stale-while-revalidate for Cloudinary images, network-first + offline fallback for HTML; `theme-color` meta tag; iOS apple-touch-icon; Chrome/Android will prompt "Add to Home Screen" automatically
@@ -711,7 +757,8 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ### Blocked (needs credentials / external action)
 - **Manual AdSense ad units**: After site review approval, create ad units in AdSense dashboard → get slot IDs → pass as `slotId` prop to each `<AdSlot>` component
-- **Ezoic application**: Apply at ezoic.com (no traffic minimum) to upgrade from AdSense ~$8 RPM to Ezoic ~$18 RPM — 2x revenue with zero traffic change
+- **Ezoic application**: Apply at ezoic.com (no traffic minimum) to upgrade from AdSense ~$8 RPM to Ezoic ~$18 RPM — 2x revenue with zero traffic change. **Consent Mode v2 is now in place**, which satisfies Ezoic's CMP requirement.
+- **Phase 5.3 — Browser push notifications**: Deferred. Requires either a OneSignal account (free tier) for reliable scheduled sends, or a Vercel KV store to persist subscriptions for the Web Push API.
 
 ### Pending Plans
 
@@ -721,6 +768,7 @@ Detailed plan files exist with all pending work:
 - `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- All todos completed ✓
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 - `.cursor/plans/challenge_friend_+_pwa_091f384f.plan.md` -- All todos completed ✓ (Challenge a Friend + PWA)
+- `.cursor/plans/consent_banner_+_core_web_vitals_a09095ac.plan.md` -- All todos completed ✓ (Consent Banner + Core Web Vitals)
 
 ---
 

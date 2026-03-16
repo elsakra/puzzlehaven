@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ServiceWorkerRegistration from "@/components/layout/ServiceWorkerRegistration";
+import CookieConsent from "@/components/layout/CookieConsent";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 
 const inter = Inter({
@@ -71,6 +72,27 @@ export default function RootLayout({
       <head>
         {/* Theme color for browser chrome */}
         <meta name="theme-color" content="#f59e0b" />
+        {/* Preconnect to external origins for faster resource loading (Core Web Vitals) */}
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Google Consent Mode v2 — must fire before GA4 config; defaults to denied until user accepts */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                analytics_storage: 'denied',
+                ad_storage: 'denied',
+                ad_personalization: 'denied',
+                ad_user_data: 'denied',
+                wait_for_update: 500
+              });
+            `,
+          }}
+        />
         {/* Google Analytics 4 */}
         <script
           async
@@ -95,6 +117,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-white text-stone-900`}>
         <ServiceWorkerRegistration />
+        <CookieConsent />
         <Header />
         <main className="min-h-[80vh]">{children}</main>
         <Footer />
