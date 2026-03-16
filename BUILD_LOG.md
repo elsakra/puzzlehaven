@@ -95,6 +95,100 @@ The puzzle engine is a standalone Canvas 2D system with no library dependencies:
 
 ## Build Timeline
 
+### Commit 25: Stats, Achievements, Settings Panel + Email Capture
+
+**Three engagement/revenue plan todos completed in one session:**
+
+---
+
+#### 1. Stats + Achievements (Engagement Plan Phase 4B/4C — `stats-achievements`)
+
+**New `src/lib/stats.ts`** — `PuzzleStats` interface (`totalSolved`, `totalTimeSecs`, `categoryCount`, `bestTimes`, `records[]`). `recordPuzzleComplete(category, pieces, secs, score, mode, diff)` appends to localStorage key `puzzle_stats` and returns updated stats. `getStats()`, `resetStats()`, `recentSolvedCount(days)`, `formatTime()`, `totalTimeLabel()` helpers. Records capped at 500 to prevent unbounded growth.
+
+**New `src/lib/achievements.ts`** — 8 achievements checked against stats + streak:
+
+| ID | Title | Condition |
+|---|---|---|
+| `first-solve` | First Piece | Any puzzle complete |
+| `speed-demon` | Speed Demon | 24pc in < 60 s |
+| `puzzle-10` | Puzzle Lover | 10 puzzles total |
+| `explorer` | Explorer | All 8 categories played |
+| `streak-3` | Habit Forming | 3-day daily streak |
+| `streak-7` | Weekly Warrior | 7-day daily streak |
+| `century` | Centurion | 100 puzzles total |
+| `hardmode` | Iron Will | Any puzzle on Hard difficulty |
+
+`checkAndAwardNew(stats, streak)` returns newly unlocked achievements and persists them to `puzzle_achievements` key.
+
+**New `src/app/stats/page.tsx`** — Client-only stats dashboard (localStorage, no server fetch):
+- Streak card (current/best, emoji scales with streak length)
+- 3-stat summary row: total solved, total time, this week
+- Best times grid for 24/48/96/150 piece counts
+- Category breakdown with animated bar chart
+- 2×4 achievement grid with unlock dates; locked achievements greyed + `grayscale`
+- Empty state with CTA to play today's daily puzzle
+
+**`src/lib/storage.ts`** — Exported `StreakData` interface (was private).
+
+**`src/components/puzzle/PuzzleCanvas.tsx`** — Inside `onComplete`:
+- Reads final score from `finalScoreRef` (updated via `onScoreUpdate` to avoid stale closure)
+- Calls `recordPuzzleComplete(category, count, secs, finalScoreRef.current, mode, diff)`
+- Calls `checkAndAwardNew(stats, streak)` — newly unlocked achievements queue into `achievementToasts` state
+- Achievement toasts render as stacked amber pills at bottom-center; auto-dismiss at 4 s (500 ms stagger per achievement); visually distinct from progress-saved toast
+
+**`src/components/layout/Header.tsx`** — Added `<NavLink href="/stats">Stats</NavLink>` to desktop nav and `<MobileNavLink>My Stats</MobileNavLink>` to mobile menu.
+
+---
+
+#### 2. Settings Panel (Engagement Plan Phase 5 — `settings-panel`)
+
+**New `src/lib/settings.ts`** — `UserSettings` interface: `snapSensitivity: "low"|"medium"|"high"`, `backgroundTheme: "dark"|"slate"|"forest"|"midnight"|"warm"`, `soundEnabled: boolean`. `SNAP_THRESHOLDS` map (`low=8, medium=15, high=25`). `BACKGROUND_THEMES` map with `bg/board/dot` CSS colors per theme. `getSettings()` / `saveSettings()` via localStorage key `puzzle_settings`.
+
+**`src/engine/InteractionHandler.ts`** — `SNAP_THRESHOLD` constant renamed to `DEFAULT_SNAP_THRESHOLD`. `snapThreshold` instance field added. Constructor accepts new optional `snapThreshold` param (default 15). All internal `SNAP_THRESHOLD` references replaced with `this.snapThreshold`.
+
+**`src/engine/PuzzleEngine.ts`** — `bgColors` instance object stores 4 color values per theme. `setupInteraction()` passes `this.snapThreshold` to `InteractionHandler`. New public methods:
+- `setSnapThreshold(n)` — updates field + reinits interaction handler live (no puzzle restart required)
+- `setBackgroundTheme(theme)` — swaps `bgColors`; `drawBackground()` now reads from `this.bgColors` instead of hardcoded hex values. 5 themes: dark (default), slate, forest, midnight, warm.
+
+**New `src/components/puzzle/SettingsModal.tsx`** — Modal dialog (Escape to close, click-outside to close):
+- **Background**: 5 circular swatches; active swatch has white ring + 110% scale; change applies to engine immediately and persists
+- **Snap Sensitivity**: 3 pill buttons (Low/Medium/High) with descriptions + px threshold shown
+- **Sound**: on/off toggle button; kept in sync with existing in-controls mute button
+
+**`src/components/puzzle/PuzzleControls.tsx`** — Added `onOpenSettings` prop + gear-icon button (between fullscreen and mute buttons).
+
+**`src/components/puzzle/PuzzleCanvas.tsx`** — `userSettings` state initialized from `getSettings()` (SSR-safe). `userSettingsRef` keeps settings accessible inside stale closures. After `engine.init()`: applies snap threshold, background theme, and mute state from saved settings. `handleSettingsChange(next)` updates state + ref + calls `engine.setSnapThreshold` + `engine.setBackgroundTheme` live. `SettingsModal` rendered above completion modal when `showSettings=true`.
+
+---
+
+#### 3. Email Capture — ConvertKit (Revenue Plan Phase 1.3 — `fix-email`)
+
+**New `src/app/api/subscribe/route.ts`** — Server-side POST handler:
+- Returns `503` if `CONVERTKIT_API_KEY` or `CONVERTKIT_FORM_ID` env vars are absent
+- Validates email presence and `@` character
+- Proxies to `https://api.convertkit.com/v3/forms/{FORM_ID}/subscribe`
+- Returns `{ ok: true }` on success or `{ error: string }` on failure
+
+**`src/components/layout/EmailForm.tsx`** — Complete rewrite:
+- Status machine: `idle → loading → success|error`
+- Loading state: spinner + "Subscribing…" label, button disabled
+- Success state: replaces form with green (or white/translucent in dark mode) confirmation pill "You're in! Check your inbox."
+- Error state: inline error message below input; retryable
+- Accessible: disabled inputs during loading, focus-visible rings
+
+**`.env.local`** — Two ConvertKit keys added as commented-out placeholders:
+```
+# CONVERTKIT_API_KEY=your_api_key_here
+# CONVERTKIT_FORM_ID=your_form_id_here
+```
+Uncomment and fill in after signing up at [kit.com](https://kit.com) (free, 10K subscribers). Form ID is visible in the form's edit URL: `kit.com/forms/{FORM_ID}/edit`.
+
+---
+
+**Build result:** 130 static pages (+1 `/stats`, +1 `/api/subscribe`), exit 0.
+
+---
+
 ### Commit 24: Cloudinary Image Migration (Phase 6.1)
 
 **Phase 6.1 from MISSION.md — `cloudinary-images`:**
@@ -493,7 +587,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 24)
+## Current State (as of commit 25)
 
 ### What works
 - **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
@@ -537,20 +631,27 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - **Mobile scroll fix** — `touch-action: none` applied via inline JSX style on both the canvas element and its container div, preventing page-scroll from hijacking drag gestures on mobile
 - **Mobile canvas size** — canvas container uses `aspect-square` on mobile (375×375px on a 375px phone, +33% height vs before) and `aspect-[4/3]` on sm+ screens
 
+### What works (additions in commit 25)
+- **Stats dashboard** (`/stats`) — total solved, total time, puzzles this week, best times by piece count, category breakdown bar chart, 8 achievement badges with unlock dates
+- **Achievements** — 8 badges auto-checked on every puzzle completion; toast notifications stack at bottom of canvas and dismiss after 4 s
+- **Settings panel** — gear icon in puzzle controls opens modal with: 5 background themes (dark/slate/forest/midnight/warm, applies live to canvas), 3 snap-sensitivity levels (low=8px/medium=15px/high=25px), sound toggle in sync with existing mute button; all settings persisted to localStorage
+- **Email capture** — `/api/subscribe` ConvertKit proxy; form shows spinner on submit, success confirmation, error message with retry; activate by uncommenting ConvertKit keys in `.env.local`
+- **Stats nav link** — "Stats" in desktop nav and "My Stats" in mobile menu
+
 ### What does NOT work
-- **Email capture**: Form submits to nowhere (no backend integration)
+- **Email capture (awaiting credentials)**: API route is live and tested; form UX is complete. Activation requires adding real `CONVERTKIT_API_KEY` and `CONVERTKIT_FORM_ID` to `.env.local` (see instructions in the file). Until then, the API returns `503`.
 - **Manual ad units**: AdSlot components currently show invisible reserved space until real slot IDs are created in the AdSense dashboard and passed as `slotId` props. Google Auto Ads will serve ads automatically in the meantime.
 
 ### Blocked (needs credentials / external action)
-- **Email capture** (`fix-email`): Needs ConvertKit or Buttondown API key
+- **Email capture activation**: Uncomment and fill `CONVERTKIT_API_KEY` + `CONVERTKIT_FORM_ID` in `.env.local`. Sign up free at [kit.com](https://kit.com) → create a form → Settings → API for the key.
 - **Manual AdSense ad units**: After site review approval, create ad units in AdSense dashboard → get slot IDs → pass as `slotId` prop to each `<AdSlot>` component
 
 ### Pending Plans
 
 Detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: stats-achievements, settings-panel
-- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked on provider/API keys)
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- All todos completed ✓ (stats-achievements, settings-panel done)
+- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- All todos completed ✓ (fix-email code done; activation requires ConvertKit keys)
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 
 ---
