@@ -2,7 +2,7 @@ import { PieceState, PieceDefinition, PuzzleConfig, Difficulty, PieceRotation } 
 import { RenderedPiece } from "./PieceRenderer";
 import type { SnapAnimData } from "./AnimationManager";
 
-const SNAP_THRESHOLD = 15;
+const DEFAULT_SNAP_THRESHOLD = 15;
 const MIN_SCALE = 0.02;
 const MAX_SCALE = 60;
 
@@ -23,6 +23,7 @@ export class InteractionHandler {
   private rendered: RenderedPiece[];
   private config: PuzzleConfig;
   private difficulty: Difficulty;
+  private snapThreshold: number = DEFAULT_SNAP_THRESHOLD;
   private drag: DragState | null = null;
   private scale: number = 1;
   private panX: number = 0;
@@ -61,7 +62,8 @@ export class InteractionHandler {
     definitions: PieceDefinition[],
     rendered: RenderedPiece[],
     config: PuzzleConfig,
-    difficulty: Difficulty = "medium"
+    difficulty: Difficulty = "medium",
+    snapThreshold: number = DEFAULT_SNAP_THRESHOLD
   ) {
     this.canvas = canvas;
     this.pieces = pieces;
@@ -69,6 +71,7 @@ export class InteractionHandler {
     this.rendered = rendered;
     this.config = config;
     this.difficulty = difficulty;
+    this.snapThreshold = snapThreshold;
 
     const hitCanvas = document.createElement("canvas");
     hitCanvas.width = 1;
@@ -394,7 +397,7 @@ export class InteractionHandler {
     const dx = Math.abs(piece.x - def.correctX);
     const dy = Math.abs(piece.y - def.correctY);
 
-    if (dx < SNAP_THRESHOLD && dy < SNAP_THRESHOLD) {
+    if (dx < this.snapThreshold && dy < this.snapThreshold) {
       const groupPieces = this.getGroupPieces(piece.groupId);
       const offsetX = def.correctX - piece.x;
       const offsetY = def.correctY - piece.y;
@@ -448,8 +451,8 @@ export class InteractionHandler {
       const actualDy = neighbor.y - piece.y;
 
       if (
-        Math.abs(actualDx - expectedDx) < SNAP_THRESHOLD &&
-        Math.abs(actualDy - expectedDy) < SNAP_THRESHOLD
+        Math.abs(actualDx - expectedDx) < this.snapThreshold &&
+        Math.abs(actualDy - expectedDy) < this.snapThreshold
       ) {
         this.mergeGroups(piece.groupId, neighbor.groupId);
         this.onGroupMerge?.();

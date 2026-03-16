@@ -54,6 +54,13 @@ export class PuzzleEngine {
   private callbacks: PuzzleCallbacks = {};
   private showPreview: boolean = false;
   private puzzleId: string = "";
+  private snapThreshold: number = 15;
+  private bgColors = {
+    top: "#2d3748",
+    mid: "#1a202c",
+    bot: "#171923",
+    dot: "rgba(255,255,255,0.03)",
+  };
 
   // Base transform — set by fitToCanvas, recalculated on resize
   private baseScale: number = 1;
@@ -362,7 +369,8 @@ export class PuzzleEngine {
       this.definitions,
       this.rendered,
       this.config,
-      this.difficulty
+      this.difficulty,
+      this.snapThreshold
     );
 
     this.interaction.setTransform(this.scale, this.panX, this.panY);
@@ -691,16 +699,15 @@ export class PuzzleEngine {
   private drawBackground() {
     const { ctx, canvas } = this;
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "#2d3748");
-    gradient.addColorStop(0.5, "#1a202c");
-    gradient.addColorStop(1, "#171923");
+    gradient.addColorStop(0, this.bgColors.top);
+    gradient.addColorStop(0.5, this.bgColors.mid);
+    gradient.addColorStop(1, this.bgColors.bot);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    ctx.globalAlpha = 0.03;
+    ctx.fillStyle = this.bgColors.dot;
     const dotSpacing = 30;
-    ctx.fillStyle = "#ffffff";
     for (let x = 0; x < canvas.width; x += dotSpacing) {
       for (let y = 0; y < canvas.height; y += dotSpacing) {
         ctx.beginPath();
@@ -865,6 +872,25 @@ export class PuzzleEngine {
 
   isMuted(): boolean {
     return this.sound.muted;
+  }
+
+  setSnapThreshold(threshold: number) {
+    this.snapThreshold = threshold;
+    // If interaction is already initialised, rebuild it with the new threshold
+    if (this.interaction) {
+      this.setupInteraction();
+    }
+  }
+
+  setBackgroundTheme(theme: "dark" | "slate" | "forest" | "midnight" | "warm") {
+    const themes: Record<string, { top: string; mid: string; bot: string; dot: string }> = {
+      dark:     { top: "#2d3748", mid: "#1a202c", bot: "#171923", dot: "rgba(255,255,255,0.03)" },
+      slate:    { top: "#283044", mid: "#1e2535", bot: "#1a2030", dot: "rgba(148,163,184,0.04)" },
+      forest:   { top: "#1d3326", mid: "#162b1e", bot: "#132217", dot: "rgba(134,239,172,0.04)" },
+      midnight: { top: "#18182e", mid: "#111124", bot: "#0d0d18", dot: "rgba(167,139,250,0.04)" },
+      warm:     { top: "#3d2a18", mid: "#2d1e10", bot: "#241a10", dot: "rgba(251,191,36,0.04)" },
+    };
+    this.bgColors = themes[theme] ?? themes.dark;
   }
 
   private saveState() {
