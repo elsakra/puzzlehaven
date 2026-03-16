@@ -95,6 +95,31 @@ The puzzle engine is a standalone Canvas 2D system with no library dependencies:
 
 ## Build Timeline
 
+### Commit 28: Puzzle Catalog Expansion — 103 → 185 Entries (Phase 2 SEO Scale)
+
+**Goal**: Re-expand the puzzle catalog which was reduced to 103 entries in Commit 16 (Fix All Broken Puzzle Images). More indexed puzzle pages = more long-tail SEO traffic. MISSION.md identifies this as the single highest-impact lever.
+
+**New `scripts/expand-puzzles.mjs`:**
+- Contains ~352 new `(slug, category, unsplashId, title, description, difficulty, tags)` entries across all 8 categories
+- Attempts to upload each to Cloudinary at `jigsaws/puzzles/{slug}` with `overwrite: false` (re-runs are safe)
+- Handles failures gracefully — logs and skips any Unsplash source URL that errors (deleted photos, etc.)
+- Outputs `scripts/expand-puzzles-output.json` (upload summary) and a TypeScript additions snippet
+- **Result: 82/352 uploads succeeded** (remaining IDs were invalid/non-existent Unsplash photos)
+
+**`src/data/puzzles.ts`** — 82 new puzzle entries added (ids `x1`–`x82`) across all categories:
+- animals: +5 (bengal tiger, humpback whale, sea turtle, polar bear, narwhal)
+- nature: +13 (moss rocks, wildflower meadow, ice cave, coastal fog, salt flats, spring creek, pine cone, spider web, barrel wave, cactus macro, wheat field, hummingbird, sand dunes)
+- landscapes: +14 (Patagonia, Iceland waterfall, Swiss Alps, Vietnam rice terraces, Dolomites, Blue Ridge, Iceland black sand, Hong Kong peak, Banff Lake Louise, Cape Town, Uyuni, Plitvice, Kyoto bamboo, aurora reflection)
+- art: +14 (impressionist garden, street mural, marble sculpture, Byzantine mosaic, fluid pour, origami cranes, cathedral glass, calligraphy, graffiti, pointillist, linocut, neon sign, Bauhaus, ceramic glaze)
+- food: +12 (bibimbap, tapas, Thai curry, fresh pasta, fruit tart, matcha, grilled steak, lobster boil, coconut mango, sushi rolls, Greek salad, spiced latte)
+- travel: +9 (Singapore, Istanbul, New Orleans, Marrakech, Vienna, Kyoto geisha, Petra, Sydney, Santorini)
+- holidays: +3 (Halloween pumpkins, Easter basket, back-to-school)
+- abstract: +12 (bokeh gold, soap bubble, paint splash, circuit board, neon geometry, oil-water rainbow, marble swirl, crystal, ice snowflake, lightning, galaxy nebula, ink bloom)
+
+**Build result:** 213 static pages (up from 128), exit 0. Puzzle pages: 185 (up from 103).
+
+---
+
 ### Commit 27: Cookie Consent Banner + Core Web Vitals (Phase 4.4 + 6.3)
 
 **Two MISSION.md todos completed in one session:**
@@ -692,7 +717,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 27)
+## Current State (as of commit 28)
 
 ### What works
 - **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
@@ -712,7 +737,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
-- **103 puzzle images on Cloudinary CDN** across 8 categories (animals 17, nature 19, landscapes 9, art 13, food 21, travel 13, holidays 3, abstract 8) — all 103 uploaded to `jigsaws/puzzles/{slug}`, served with automatic WebP/AVIF and `q_auto`
+- **185 puzzle images on Cloudinary CDN** across 8 categories (animals 22, nature 32, landscapes 23, art 27, food 33, travel 22, holidays 6, abstract 20) — all uploaded to `jigsaws/puzzles/{slug}`, served with automatic WebP/AVIF and `q_auto`. Site builds to **213 static pages** (up from 128)
 - **"You Might Also Like"** cross-category section on every puzzle page — 4 puzzles from other categories, deterministically varied; ~2,000 cross-category internal links across the site
 - **Blog index page** at `/blog` listing all 5 articles with SEO metadata
 - 5 SEO blog post articles
@@ -768,7 +793,8 @@ Detailed plan files exist with all pending work:
 - `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- All todos completed ✓
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 - `.cursor/plans/challenge_friend_+_pwa_091f384f.plan.md` -- All todos completed ✓ (Challenge a Friend + PWA)
-- `.cursor/plans/consent_banner_+_core_web_vitals_a09095ac.plan.md` -- All todos completed ✓ (Consent Banner + Core Web Vitals)
+- `.cursor/plans/consent_banner_+_core_web_vitals_a09095ac.plan.md` -- All todos completed ✓
+- `.cursor/plans/puzzle_catalog_scale-up_04db48f3.plan.md` -- All todos completed ✓ (Catalog: 103→185 entries, 128→213 static pages) (Consent Banner + Core Web Vitals)
 
 ---
 
