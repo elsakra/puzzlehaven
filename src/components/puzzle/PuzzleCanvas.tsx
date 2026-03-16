@@ -77,6 +77,8 @@ export default function PuzzleCanvas({
   const [hintState, setHintState] = useState<HintState>({ available: false, cooldownLeft: 0 });
   const [showProgressToast, setShowProgressToast] = useState(false);
   const progressToastShownRef = useRef(false);
+  const [showRotateTip, setShowRotateTip] = useState(false);
+  const rotateTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
   const finalScoreRef = useRef(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -135,6 +137,8 @@ export default function PuzzleCanvas({
       setShowProgressToast(false);
       setShowPreview(false);
       progressToastShownRef.current = false;
+      setShowRotateTip(false);
+      if (rotateTipTimerRef.current) clearTimeout(rotateTipTimerRef.current);
 
       sizeCanvas();
 
@@ -206,6 +210,10 @@ export default function PuzzleCanvas({
         console.error("Failed to init puzzle engine:", err);
       } finally {
         setLoading(false);
+        if (diff === "hard") {
+          setShowRotateTip(true);
+          rotateTipTimerRef.current = setTimeout(() => setShowRotateTip(false), 8000);
+        }
       }
     },
     [imageUrl, puzzleId, puzzleCategory, seed, sizeCanvas]
@@ -477,6 +485,30 @@ export default function PuzzleCanvas({
         onUndo={handleUndo}
         onSortEdges={handleSortEdges}
       />
+
+      {/* Rotation onboarding — shown once when a Hard puzzle loads, auto-dismisses after 8 s */}
+      {showRotateTip && !completed && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-slate-700 rounded-xl px-4 py-2.5 text-sm animate-[fadeIn_0.3s_ease-out]">
+          <svg className="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span className="flex-1">
+            <strong className="font-semibold">Hard mode:</strong> pieces start rotated.{" "}
+            <strong className="font-semibold">Right-click</strong> (desktop) or{" "}
+            <strong className="font-semibold">double-tap</strong> (mobile) a piece to rotate it 90°.
+            Pieces only snap into place when correctly oriented.
+          </span>
+          <button
+            onClick={() => { setShowRotateTip(false); if (rotateTipTimerRef.current) clearTimeout(rotateTipTimerRef.current); }}
+            className="text-slate-400 hover:text-slate-600 transition-colors shrink-0 p-0.5"
+            aria-label="Dismiss tip"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div
         ref={canvasContainerRef}

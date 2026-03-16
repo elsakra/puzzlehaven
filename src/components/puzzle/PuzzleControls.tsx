@@ -107,7 +107,8 @@ export default function PuzzleControls({
   const modeInfo = GAME_MODE_LABELS[gameMode];
 
   return (
-    <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-3 px-1">
+    <div className="flex flex-col mb-3">
+    <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-1">
       <div className="flex items-center gap-4">
         {/* Timer — hidden in Zen, countdown display in Timed */}
         {!isZenMode && (
@@ -436,6 +437,23 @@ export default function PuzzleControls({
           </svg>
         </button>
       </div>
+    </div>
+
+    {/* Rotation hint — only shown when Hard difficulty is active */}
+    {difficulty === "hard" && (
+      <div className="flex items-center gap-1.5 px-1 mt-1.5">
+        <svg className="w-3 h-3 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+        <span className="text-xs text-slate-400">
+          <span className="hidden sm:inline">Hard mode: </span>
+          <strong className="font-semibold text-slate-500">Right-click</strong>
+          <span className="text-slate-400"> (desktop) · </span>
+          <strong className="font-semibold text-slate-500">Double-tap</strong>
+          <span className="text-slate-400"> (mobile) to rotate pieces 90°</span>
+        </span>
+      </div>
+    )}
     </div>
   );
 }
