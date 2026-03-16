@@ -2,8 +2,7 @@
 
 import { use } from "react";
 import PuzzleCanvas from "@/components/puzzle/PuzzleCanvas";
-
-const CLOUD_NAME = "dil14r8je";
+import { customPuzzleUrl } from "@/lib/cloudinary";
 
 interface PlayPageProps {
   params: Promise<{ id: string }>;
@@ -14,7 +13,7 @@ export default function PlayPage({ params, searchParams }: PlayPageProps) {
   const { id } = use(params);
   const { pieces } = use(searchParams);
   const publicId = decodeURIComponent(id);
-  const imageUrl = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`;
+  const imageUrl = customPuzzleUrl(publicId);
   const validPieces = [24, 48, 96, 150].includes(Number(pieces)) ? Number(pieces) : 48;
 
   return (

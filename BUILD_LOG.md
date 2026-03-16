@@ -24,7 +24,7 @@ Everything that was built, in what order, and what bugs were fixed.
 | Styling | Tailwind CSS | 4.x |
 | Puzzle Engine | Custom Canvas 2D | -- |
 | Hosting | Vercel | -- |
-| Images | Unsplash (hotlinked) | -- |
+| Images | Cloudinary CDN (self-hosted) | -- |
 
 ---
 
@@ -94,6 +94,32 @@ The puzzle engine is a standalone Canvas 2D system with no library dependencies:
 ---
 
 ## Build Timeline
+
+### Commit 24: Cloudinary Image Migration (Phase 6.1)
+
+**Phase 6.1 from MISSION.md — `cloudinary-images`:**
+
+All 103 curated puzzle images have been migrated from Unsplash hotlinks to Cloudinary CDN.
+
+**Migration approach:**
+
+- **`scripts/migrate-to-cloudinary.mjs`** (one-time script, kept for re-runs) — iterates all 103 (slug, Unsplash photo ID) pairs in batches of 5, calls `cloudinary.uploader.upload(unsplashUrl, { public_id: 'jigsaws/puzzles/{slug}', overwrite: false })`. Reads credentials from `.env.local`. Completed in 49 seconds with 103/103 successes, zero failures.
+- **`src/lib/cloudinary.ts`** (new) — canonical URL builder for all Cloudinary assets:
+  - `puzzleImageUrl(slug)` → `w_1200,h_900,c_fill,f_auto,q_auto` full-size URL
+  - `puzzleThumbUrl(slug)` → `w_400,h_300,c_fill,f_auto,q_auto` thumbnail URL
+  - `customPuzzleUrl(publicId)` → replaces the hardcoded `CLOUD_NAME` constant in `play/[id]/page.tsx`
+- **`src/data/puzzles.ts`** — rewrote all 103 puzzle entries to use `puzzleImageUrl(slug)` and `puzzleThumbUrl(slug)` instead of `unsplash(photoId)` / `thumb(photoId)`. Removed the Unsplash helper functions entirely.
+- **`src/app/play/[id]/page.tsx`** — removed local `CLOUD_NAME` constant, now imports `customPuzzleUrl` from `@/lib/cloudinary`.
+- **`next.config.ts`** — removed `images.unsplash.com` from `remotePatterns` since no Unsplash URLs remain in the codebase.
+
+**Why this matters:**
+- No more Unsplash ToS risk at scale (hotlinking is prohibited above moderate traffic)
+- Cloudinary automatically serves WebP/AVIF based on browser support (`f_auto`)
+- Quality is auto-optimised by Cloudinary's perceptual quality algorithm (`q_auto`)
+- Images are cached on Cloudinary's global CDN — faster load times for US 65+ audience
+- All transformations (resize, format, quality) are centralised in one helper file
+
+**Build result:** 128 static pages, exit 0.
 
 ### Commit 1: `d8d7cda` -- Initial Build
 
@@ -467,7 +493,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 23)
+## Current State (as of commit 24)
 
 ### What works
 - **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
@@ -487,7 +513,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - Game progress auto-saved to localStorage
 - Timer, move counter, progress bar, preview toggle, fullscreen
 - Completion modal with star rating and share text
-- **103 verified-working puzzles** across 8 categories (animals 17, nature 19, landscapes 9, art 13, food 21, travel 13, holidays 3, abstract 8) — all 103 confirmed HTTP 200 from Unsplash
+- **103 puzzle images on Cloudinary CDN** across 8 categories (animals 17, nature 19, landscapes 9, art 13, food 21, travel 13, holidays 3, abstract 8) — all 103 uploaded to `jigsaws/puzzles/{slug}`, served with automatic WebP/AVIF and `q_auto`
 - **"You Might Also Like"** cross-category section on every puzzle page — 4 puzzles from other categories, deterministically varied; ~2,000 cross-category internal links across the site
 - **Blog index page** at `/blog` listing all 5 articles with SEO metadata
 - 5 SEO blog post articles
@@ -521,10 +547,10 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ### Pending Plans
 
-Three detailed plan files exist with all pending work:
+Detailed plan files exist with all pending work:
 
 - `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- Remaining: stats-achievements, settings-panel
-- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked), cloudinary-images
+- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- Remaining: fix-email (blocked on provider/API keys)
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
 
 ---
