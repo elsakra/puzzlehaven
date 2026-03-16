@@ -26,7 +26,7 @@ export default function Header() {
             <NavLink href="/daily">Daily Puzzle</NavLink>
             <NavLink href="/puzzles/animals">Animals</NavLink>
             <NavLink href="/puzzles/nature">Nature</NavLink>
-            <NavLink href="/puzzles/art">Art</NavLink>
+            <NavLink href="/stats">Stats</NavLink>
             <NavLink href="/create" highlight>+ Create</NavLink>
           </nav>
 
@@ -60,6 +60,7 @@ export default function Header() {
             <MobileNavLink href="/puzzles/animals" onClick={() => setMenuOpen(false)}>Animals</MobileNavLink>
             <MobileNavLink href="/puzzles/nature" onClick={() => setMenuOpen(false)}>Nature</MobileNavLink>
             <MobileNavLink href="/puzzles/art" onClick={() => setMenuOpen(false)}>Art</MobileNavLink>
+            <MobileNavLink href="/stats" onClick={() => setMenuOpen(false)}>My Stats</MobileNavLink>
             <MobileNavLink href="/create" onClick={() => setMenuOpen(false)}>Create Your Own</MobileNavLink>
           </nav>
         </div>

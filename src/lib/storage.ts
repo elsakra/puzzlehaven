@@ -1,7 +1,7 @@
 const STREAK_KEY = "puzzle_streak";
 const LAST_DAILY_KEY = "puzzle_last_daily";
 
-interface StreakData {
+export interface StreakData {
   current: number;
   best: number;
   lastDate: string;

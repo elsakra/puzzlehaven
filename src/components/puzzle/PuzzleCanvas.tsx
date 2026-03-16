@@ -3,11 +3,17 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { PuzzleEngine } from "@/engine/PuzzleEngine";
 import { PIECE_PRESETS, GameMode, Difficulty } from "@/engine/types";
-import { updateStreak, markDailyCompleted } from "@/lib/storage";
+import { updateStreak, markDailyCompleted, getStreak } from "@/lib/storage";
 import { analytics } from "@/lib/gtag";
+import { recordPuzzleComplete } from "@/lib/stats";
+import { checkAndAwardNew } from "@/lib/achievements";
+import type { Achievement } from "@/lib/achievements";
 import { puzzles } from "@/data/puzzles";
+import { getSettings, saveSettings, SNAP_THRESHOLDS } from "@/lib/settings";
+import type { UserSettings, BackgroundTheme } from "@/lib/settings";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
+import SettingsModal from "./SettingsModal";
 
 const PIECE_TIERS = Object.keys(PIECE_PRESETS).map(Number).sort((a, b) => a - b);
 
@@ -56,6 +62,16 @@ export default function PuzzleCanvas({
   const [hintState, setHintState] = useState<HintState>({ available: false, cooldownLeft: 0 });
   const [showProgressToast, setShowProgressToast] = useState(false);
   const progressToastShownRef = useRef(false);
+  const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
+  const finalScoreRef = useRef(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [userSettings, setUserSettings] = useState<UserSettings>(() => {
+    if (typeof window === "undefined") return { snapSensitivity: "medium", backgroundTheme: "dark", soundEnabled: true };
+    return getSettings();
+  });
+  const userSettingsRef = useRef(userSettings);
+  // Keep ref in sync with state (for use inside stale closures)
+  useEffect(() => { userSettingsRef.current = userSettings; }, [userSettings]);
 
   const sizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -80,6 +96,7 @@ export default function PuzzleCanvas({
       setMoves(0);
       setProgress({ snapped: 0, total: 0 });
       setScore(0);
+      finalScoreRef.current = 0;
       setIsViewTransformed(false);
       setCanUndo(false);
       setHintState({ available: false, cooldownLeft: 0 });
@@ -106,6 +123,18 @@ export default function PuzzleCanvas({
             markDailyCompleted(today, secs, count);
             analytics.dailyCompleted(today, secs, count);
           }
+          // Record stats + check achievements
+          const updatedStats = recordPuzzleComplete(puzzleCategory, count, secs, finalScoreRef.current, mode, diff);
+          const streak = getStreak();
+          const newAch = checkAndAwardNew(updatedStats, streak);
+          if (newAch.length > 0) {
+            setAchievementToasts((prev) => [...prev, ...newAch]);
+            newAch.forEach((_, i) => {
+              setTimeout(() => {
+                setAchievementToasts((prev) => prev.slice(1));
+              }, 4000 + i * 500);
+            });
+          }
         },
         onTimedOut: (secs, mvs) => {
           setTimedOut(true);
@@ -122,7 +151,10 @@ export default function PuzzleCanvas({
           }
         },
         onTransformChange: setIsViewTransformed,
-        onScoreUpdate: setScore,
+        onScoreUpdate: (s) => {
+          setScore(s);
+          finalScoreRef.current = s;
+        },
       });
 
       // Sync initial mute state from the new engine
@@ -131,6 +163,11 @@ export default function PuzzleCanvas({
       try {
         await engine.init(imageUrl, count, puzzleId, seed, mode, diff);
         engineRef.current = engine;
+        // Apply user settings after init
+        const s = userSettingsRef.current;
+        engine.setSnapThreshold(SNAP_THRESHOLDS[s.snapSensitivity]);
+        engine.setBackgroundTheme(s.backgroundTheme as BackgroundTheme);
+        if (!s.soundEnabled) engine.toggleMute();
         analytics.puzzleStart(puzzleId, count, puzzleCategory);
         setHintState(engine.canHint());
       } catch (err) {
@@ -320,6 +357,14 @@ export default function PuzzleCanvas({
     window.location.href = `/puzzles/${pick.category}/${pick.slug}`;
   }, [puzzleId]);
 
+  const handleSettingsChange = useCallback((next: UserSettings) => {
+    userSettingsRef.current = next;
+    setUserSettings(next);
+    saveSettings(next);
+    engineRef.current?.setSnapThreshold(SNAP_THRESHOLDS[next.snapSensitivity]);
+    engineRef.current?.setBackgroundTheme(next.backgroundTheme as BackgroundTheme);
+  }, []);
+
   const handleTryHarder = useCallback((): (() => void) | null => {
     const idx = PIECE_TIERS.indexOf(pieceCount);
     if (idx === -1 || idx >= PIECE_TIERS.length - 1) return null;
@@ -350,6 +395,7 @@ export default function PuzzleCanvas({
         onTogglePreview={togglePreview}
         onToggleFullscreen={toggleFullscreen}
         onToggleMute={toggleMute}
+        onOpenSettings={() => setShowSettings(true)}
         onResetView={resetView}
         onHint={handleHint}
         onUndo={handleUndo}
@@ -384,6 +430,35 @@ export default function PuzzleCanvas({
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
           Progress saved — come back anytime!
+        </div>
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <SettingsModal
+          settings={userSettings}
+          isMuted={isMuted}
+          onClose={() => setShowSettings(false)}
+          onSettingsChange={handleSettingsChange}
+          onMuteToggle={toggleMute}
+        />
+      )}
+
+      {/* Achievement unlock toasts */}
+      {achievementToasts.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none">
+          {achievementToasts.map((ach, i) => (
+            <div
+              key={`${ach.id}-${i}`}
+              className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-slate-800 text-sm px-4 py-3 rounded-2xl shadow-xl backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]"
+            >
+              <span className="text-xl">{ach.icon}</span>
+              <div>
+                <div className="font-bold text-xs text-amber-600 uppercase tracking-wide">Achievement unlocked</div>
+                <div className="font-semibold">{ach.title}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
