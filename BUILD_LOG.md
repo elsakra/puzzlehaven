@@ -635,15 +635,13 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - **Stats dashboard** (`/stats`) — total solved, total time, puzzles this week, best times by piece count, category breakdown bar chart, 8 achievement badges with unlock dates
 - **Achievements** — 8 badges auto-checked on every puzzle completion; toast notifications stack at bottom of canvas and dismiss after 4 s
 - **Settings panel** — gear icon in puzzle controls opens modal with: 5 background themes (dark/slate/forest/midnight/warm, applies live to canvas), 3 snap-sensitivity levels (low=8px/medium=15px/high=25px), sound toggle in sync with existing mute button; all settings persisted to localStorage
-- **Email capture** — `/api/subscribe` ConvertKit proxy; form shows spinner on submit, success confirmation, error message with retry; activate by uncommenting ConvertKit keys in `.env.local`
+- **Email capture** — `/api/subscribe` ConvertKit proxy live; form shows spinner on submit, success confirmation ("You're in! Check your inbox."), error message with retry; `CONVERTKIT_API_KEY` + `CONVERTKIT_FORM_ID` (form 9213741) configured in Vercel env vars and verified working against Kit's v3 API (double opt-in enabled)
 - **Stats nav link** — "Stats" in desktop nav and "My Stats" in mobile menu
 
 ### What does NOT work
-- **Email capture (awaiting credentials)**: API route is live and tested; form UX is complete. Activation requires adding real `CONVERTKIT_API_KEY` and `CONVERTKIT_FORM_ID` to `.env.local` (see instructions in the file). Until then, the API returns `503`.
 - **Manual ad units**: AdSlot components currently show invisible reserved space until real slot IDs are created in the AdSense dashboard and passed as `slotId` props. Google Auto Ads will serve ads automatically in the meantime.
 
 ### Blocked (needs credentials / external action)
-- **Email capture activation**: Uncomment and fill `CONVERTKIT_API_KEY` + `CONVERTKIT_FORM_ID` in `.env.local`. Sign up free at [kit.com](https://kit.com) → create a form → Settings → API for the key.
 - **Manual AdSense ad units**: After site review approval, create ad units in AdSense dashboard → get slot IDs → pass as `slotId` prop to each `<AdSlot>` component
 
 ### Pending Plans
