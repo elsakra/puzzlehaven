@@ -95,6 +95,70 @@ The puzzle engine is a standalone Canvas 2D system with no library dependencies:
 
 ## Build Timeline
 
+### Commit 26: Challenge a Friend + PWA (Phase 5.4 + 6.2)
+
+**Two MISSION.md todos completed in one session:**
+
+---
+
+#### 1. "Challenge a Friend" — Viral Sharing Loop (MISSION.md Phase 5.4)
+
+**New `src/lib/challenge.ts`** — `ChallengeData` interface (`t` time, `p` pieces, `s` score, `x` stars). `encodeChallenge(timeSeconds, pieceCount, score, stars)` → base64-encoded JSON string. `decodeChallenge(encoded)` → `ChallengeData | null` with full validation.
+
+**`src/components/puzzle/CompletionModal.tsx`** — Three additions:
+- **"Challenge a Friend" button** — amber gradient "🏆 Challenge a Friend" CTA, appears on non-Zen, non-timed-out completions, calls `onChallengeShare` prop.
+- **Challenger comparison section** — if `challengerTime` prop is set, renders an emerald (win) or amber (loss) card showing side-by-side "Your time / Friend's time" and "Your score / Friend's score" boxes with appropriate win/loss messaging.
+- New props: `challengerTime?`, `challengerScore?`, `challengerStars?`, `onChallengeShare?`.
+
+**`src/components/puzzle/PuzzleCanvas.tsx`** — Four additions:
+- On mount, reads `?c=` from `window.location.search` and decodes with `decodeChallenge()`. If valid, sets `challengeData` state and shows the challenge toast.
+- **Challenge banner** — amber gradient banner above puzzle ("🏆 You've been challenged! Beat X:XX · N pieces · Score Y") with a dismiss button; auto-hides after 6 s or on puzzle completion.
+- `handleChallengeShare()` — generates `<puzzleBaseUrl>?c=<encoded>` with the player's time/pieces/score/stars; uses `navigator.share` if available, falls back to clipboard copy.
+- Passes `challengerTime/Score/Stars` and `onChallengeShare` down to `CompletionModal`.
+- `puzzleUrl` in `CompletionModal` now strips query params (so share links are clean base URLs, not challenge links).
+
+**User flow:**
+1. Player completes puzzle → "🏆 Challenge a Friend" button appears
+2. Player clicks → gets a URL like `/puzzles/animals/cute-cat?c=eyJ0IjoxODAsInAiOjQ4...`
+3. Friend opens URL → sees amber "You've been challenged! Beat 3:00" banner
+4. Friend completes puzzle → modal shows "🎉 You beat the challenge!" or "😅 Not quite!" with side-by-side stats
+
+---
+
+#### 2. Progressive Web App — "Add to Home Screen" (MISSION.md Phase 6.2)
+
+**New `src/app/manifest.ts`** — Next.js App Router manifest route (auto-served at `/manifest.webmanifest`). Configuration: name "Online Jigsaws", `display: "standalone"`, `theme_color: "#f59e0b"` (amber), `background_color: "#fdf9f3"` (warm cream), 3 icons (SVG `any`, PNG 192px, PNG 512px).
+
+**New `public/icon.svg`** — Puzzle-themed app icon: amber rounded-square background with 4 white squares in a 2×2 grid and 4 white rectangular connectors between them. Readable at all sizes.
+
+**New `public/icon-192.png` + `public/icon-512.png`** — Generated from `icon.svg` via `scripts/generate-icons.mjs` (uses `sharp`). Used for Android home screen, PWA splash screens, and iOS apple-touch-icon.
+
+**New `public/sw.js`** — Service worker with 3 caching strategies:
+- `_next/static/` assets → **cache-first** (content-hashed, safe forever)
+- Cloudinary images → **stale-while-revalidate** (fast loads + eventual freshness)
+- HTML pages → **network-first** with offline fallback to cached homepage
+- API routes excluded from SW interception
+- Cleans up old caches on activate (`CACHE_VERSION = "v2"`)
+
+**New `src/components/layout/ServiceWorkerRegistration.tsx`** — `"use client"` component that calls `navigator.serviceWorker.register('/sw.js')` on mount, plus triggers `reg.update()` on page focus changes.
+
+**`src/app/layout.tsx`** — Three additions:
+- `<meta name="theme-color" content="#f59e0b" />` in `<head>`
+- `manifest`, `appleWebApp`, and `icons` fields added to the `metadata` export
+- `<ServiceWorkerRegistration />` added to `<body>` (renders null to DOM)
+
+**PWA install criteria met:**
+- ✓ Served over HTTPS (Vercel)
+- ✓ Web app manifest with name, icons, start_url, display
+- ✓ Service worker registered with fetch handler
+- Chrome on Android will show "Add to Home Screen" prompt automatically. iOS: user taps Share → "Add to Home Screen".
+
+---
+
+**Build result:** 131 static pages + 1 `/manifest.webmanifest` route, exit 0.
+
+---
+
 ### Commit 25: Stats, Achievements, Settings Panel + Email Capture
 
 **Three engagement/revenue plan todos completed in one session:**
@@ -587,7 +651,7 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ---
 
-## Current State (as of commit 25)
+## Current State (as of commit 26)
 
 ### What works
 - **Difficulty modifiers** — Easy (edge pieces pre-placed, near-correct scatter for interior), Medium (default scatter), Hard (random rotation + snap requires rotation=0); right-click (desktop) or double-tap (mobile) rotates piece/group 90° CW; rotation-aware hit testing; fully undoable
@@ -631,6 +695,10 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 - **Mobile scroll fix** — `touch-action: none` applied via inline JSX style on both the canvas element and its container div, preventing page-scroll from hijacking drag gestures on mobile
 - **Mobile canvas size** — canvas container uses `aspect-square` on mobile (375×375px on a 375px phone, +33% height vs before) and `aspect-[4/3]` on sm+ screens
 
+### What works (additions in commit 26)
+- **"Challenge a Friend"** — completion modal shows amber gradient "🏆 Challenge a Friend" button; generates `?c=<base64>` URL encoding time/pieces/score/stars; recipient sees challenge banner above puzzle; after solving, modal shows side-by-side win/loss comparison (time + score vs challenger)
+- **PWA / "Add to Home Screen"** — `/manifest.webmanifest` (name, icons, standalone display, amber theme color); service worker at `/sw.js` with cache-first for static assets, stale-while-revalidate for Cloudinary images, network-first + offline fallback for HTML; `theme-color` meta tag; iOS apple-touch-icon; Chrome/Android will prompt "Add to Home Screen" automatically
+
 ### What works (additions in commit 25)
 - **Stats dashboard** (`/stats`) — total solved, total time, puzzles this week, best times by piece count, category breakdown bar chart, 8 achievement badges with unlock dates
 - **Achievements** — 8 badges auto-checked on every puzzle completion; toast notifications stack at bottom of canvas and dismiss after 4 s
@@ -643,14 +711,16 @@ Replaced the single-mode puzzle experience with a full game mode system. A new "
 
 ### Blocked (needs credentials / external action)
 - **Manual AdSense ad units**: After site review approval, create ad units in AdSense dashboard → get slot IDs → pass as `slotId` prop to each `<AdSlot>` component
+- **Ezoic application**: Apply at ezoic.com (no traffic minimum) to upgrade from AdSense ~$8 RPM to Ezoic ~$18 RPM — 2x revenue with zero traffic change
 
 ### Pending Plans
 
 Detailed plan files exist with all pending work:
 
-- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- All todos completed ✓ (stats-achievements, settings-panel done)
-- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- All todos completed ✓ (fix-email code done; activation requires ConvertKit keys)
+- `.cursor/plans/10x_engagement_overhaul_93aed70e.plan.md` -- All todos completed ✓
+- `.cursor/plans/20k_revenue_growth_plan_397f4194.plan.md` -- All todos completed ✓
 - `.cursor/plans/social-share-confetti-polish_06df1b7b.plan.md` -- All todos completed ✓
+- `.cursor/plans/challenge_friend_+_pwa_091f384f.plan.md` -- All todos completed ✓ (Challenge a Friend + PWA)
 
 ---
 

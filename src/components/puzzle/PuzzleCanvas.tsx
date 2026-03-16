@@ -11,11 +11,26 @@ import type { Achievement } from "@/lib/achievements";
 import { puzzles } from "@/data/puzzles";
 import { getSettings, saveSettings, SNAP_THRESHOLDS } from "@/lib/settings";
 import type { UserSettings, BackgroundTheme } from "@/lib/settings";
+import { encodeChallenge, decodeChallenge } from "@/lib/challenge";
+import type { ChallengeData } from "@/lib/challenge";
 import PuzzleControls from "./PuzzleControls";
 import CompletionModal from "./CompletionModal";
 import SettingsModal from "./SettingsModal";
 
 const PIECE_TIERS = Object.keys(PIECE_PRESETS).map(Number).sort((a, b) => a - b);
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function getStars(seconds: number, pieceCount: number): number {
+  const basetime = pieceCount * 3;
+  if (seconds <= basetime * 0.5) return 3;
+  if (seconds <= basetime) return 2;
+  return 1;
+}
 
 interface HintState {
   available: boolean;
@@ -65,6 +80,9 @@ export default function PuzzleCanvas({
   const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
   const finalScoreRef = useRef(0);
   const [showSettings, setShowSettings] = useState(false);
+  // Challenge state — read from ?c= URL param on mount
+  const [challengeData, setChallengeData] = useState<ChallengeData | null>(null);
+  const [showChallengeToast, setShowChallengeToast] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings>(() => {
     if (typeof window === "undefined") return { snapSensitivity: "medium", backgroundTheme: "dark", soundEnabled: true };
     return getSettings();
@@ -72,6 +90,20 @@ export default function PuzzleCanvas({
   const userSettingsRef = useRef(userSettings);
   // Keep ref in sync with state (for use inside stale closures)
   useEffect(() => { userSettingsRef.current = userSettings; }, [userSettings]);
+
+  // Read challenge data from ?c= URL param on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("c");
+    if (!encoded) return;
+    const data = decodeChallenge(encoded);
+    if (data) {
+      setChallengeData(data);
+      setShowChallengeToast(true);
+      const t = setTimeout(() => setShowChallengeToast(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const sizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -374,8 +406,52 @@ export default function PuzzleCanvas({
     };
   }, [pieceCount, gameMode, difficulty, handleStartNewGame]);
 
+  // Generate a challenge URL and share/copy it
+  const handleChallengeShare = useCallback(async () => {
+    const myStars = getStars(timer, pieceCount);
+    const encoded = encodeChallenge(timer, pieceCount, finalScoreRef.current, myStars);
+    // Strip existing ?c= param, add new one
+    const base = typeof window !== "undefined"
+      ? window.location.href.split("?")[0].split("#")[0]
+      : "";
+    const challengeUrl = `${base}?c=${encoded}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Can you beat my jigsaw time?",
+          text: `I solved "${puzzleTitle}" in ${formatTime(timer)}! ${pieceCount} pieces · Score: ${finalScoreRef.current.toLocaleString()}\nThink you can beat me?`,
+          url: challengeUrl,
+        });
+        return;
+      } catch {}
+    }
+    await navigator.clipboard.writeText(challengeUrl);
+  }, [timer, pieceCount, puzzleTitle]);
+
   return (
     <div ref={containerRef} className="relative w-full flex flex-col gap-3">
+      {/* Challenge banner — visible until dismissed or puzzle completes */}
+      {challengeData && showChallengeToast && !completed && (
+        <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-2xl px-4 py-3 shadow-md animate-[fadeIn_0.3s_ease-out]">
+          <span className="text-2xl shrink-0">🏆</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm leading-tight">You&apos;ve been challenged!</div>
+            <div className="text-amber-100 text-xs mt-0.5">
+              Beat {formatTime(challengeData.t)} · {challengeData.p} pieces · Score {challengeData.s.toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowChallengeToast(false)}
+            className="text-white/80 hover:text-white transition-colors shrink-0 p-1"
+            aria-label="Dismiss"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       <PuzzleControls
         timer={timer}
         moves={moves}
@@ -471,12 +547,16 @@ export default function PuzzleCanvas({
           gameMode={gameMode}
           timedOut={timedOut}
           puzzleTitle={puzzleTitle}
-          puzzleUrl={typeof window !== "undefined" ? window.location.href : ""}
+          puzzleUrl={typeof window !== "undefined" ? window.location.href.split("?")[0] : ""}
           imageUrl={imageUrl}
+          challengerTime={challengeData?.t}
+          challengerScore={challengeData?.s}
+          challengerStars={challengeData?.x}
           onPlayAgain={handlePlayAgain}
           onNextPuzzle={handleNextPuzzle()}
           onRandomPuzzle={handleRandomPuzzle}
           onTryHarder={handleTryHarder()}
+          onChallengeShare={handleChallengeShare}
         />
       )}
     </div>

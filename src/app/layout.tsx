@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import ServiceWorkerRegistration from "@/components/layout/ServiceWorkerRegistration";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 
 const inter = Inter({
@@ -43,6 +44,19 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: siteName,
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 const ADSENSE_PUBLISHER_ID = "ca-pub-5593486984619998";
@@ -55,6 +69,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Theme color for browser chrome */}
+        <meta name="theme-color" content="#f59e0b" />
         {/* Google Analytics 4 */}
         <script
           async
@@ -78,6 +94,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-white text-stone-900`}>
+        <ServiceWorkerRegistration />
         <Header />
         <main className="min-h-[80vh]">{children}</main>
         <Footer />

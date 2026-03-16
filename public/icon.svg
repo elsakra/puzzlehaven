@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rounded square amber background -->
+  <rect width="512" height="512" rx="110" fill="#f59e0b"/>
+
+  <!-- 2×2 puzzle grid with connecting tabs -->
+  <!-- Top-left piece -->
+  <rect x="72" y="72" width="160" height="160" rx="18" fill="white" fill-opacity="0.95"/>
+  <!-- Top-right piece -->
+  <rect x="280" y="72" width="160" height="160" rx="18" fill="white" fill-opacity="0.82"/>
+  <!-- Bottom-left piece -->
+  <rect x="72" y="280" width="160" height="160" rx="18" fill="white" fill-opacity="0.82"/>
+  <!-- Bottom-right piece -->
+  <rect x="280" y="280" width="160" height="160" rx="18" fill="white" fill-opacity="0.68"/>
+
+  <!-- Horizontal connector between top pieces -->
+  <rect x="232" y="126" width="48" height="52" rx="26" fill="white" fill-opacity="0.95"/>
+  <!-- Horizontal connector between bottom pieces -->
+  <rect x="232" y="334" width="48" height="52" rx="26" fill="white" fill-opacity="0.82"/>
+  <!-- Vertical connector between left pieces -->
+  <rect x="126" y="232" width="52" height="48" rx="26" fill="white" fill-opacity="0.95"/>
+  <!-- Vertical connector between right pieces -->
+  <rect x="334" y="232" width="52" height="48" rx="26" fill="white" fill-opacity="0.82"/>
+</svg>

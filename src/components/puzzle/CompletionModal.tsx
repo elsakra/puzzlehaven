@@ -13,10 +13,15 @@ interface CompletionModalProps {
   puzzleTitle: string;
   puzzleUrl: string;
   imageUrl: string;
+  /** If set, this player is responding to a challenge */
+  challengerTime?: number;
+  challengerScore?: number;
+  challengerStars?: number;
   onPlayAgain: () => void;
   onNextPuzzle: (() => void) | null;
   onRandomPuzzle: () => void;
   onTryHarder: (() => void) | null;
+  onChallengeShare?: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -42,13 +47,19 @@ export default function CompletionModal({
   puzzleTitle,
   puzzleUrl,
   imageUrl,
+  challengerTime,
+  challengerScore,
+  challengerStars,
   onPlayAgain,
   onNextPuzzle,
   onRandomPuzzle,
   onTryHarder,
+  onChallengeShare,
 }: CompletionModalProps) {
   const stars = timedOut ? 0 : getStars(timer, pieceCount);
   const isZen = gameMode === "zen";
+  const isChallenge = typeof challengerTime === "number" && !timedOut && !isZen;
+  const playerWon = isChallenge && timer < (challengerTime ?? Infinity);
 
   const shareText = timedOut
     ? `I ran out of time on "${puzzleTitle}" jigsaw puzzle!\n${pieceCount} pieces · ${moves} moves\nThink you can beat the clock?\n${puzzleUrl}`
@@ -141,6 +152,45 @@ export default function CompletionModal({
           </>
         )}
 
+        {/* Challenge result — shown when responding to a friend's challenge */}
+        {isChallenge && (
+          <div className={`mb-4 rounded-2xl px-4 py-3 ${playerWon ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-amber-50 ring-1 ring-amber-200"}`}>
+            <div className="text-lg font-bold mb-2">
+              {playerWon ? "🎉 You beat the challenge!" : "😅 Not quite — try again!"}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-white/70 rounded-xl py-2 px-3">
+                <div className={`font-bold tabular-nums text-base ${playerWon ? "text-emerald-600" : "text-slate-800"}`}>
+                  {formatTime(timer)}
+                </div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">Your time</div>
+              </div>
+              <div className="bg-white/70 rounded-xl py-2 px-3">
+                <div className="font-bold tabular-nums text-base text-slate-500">
+                  {formatTime(challengerTime!)}
+                </div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">Friend&apos;s time</div>
+              </div>
+            </div>
+            {challengerScore !== undefined && (
+              <div className="mt-1.5 grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-white/70 rounded-xl py-2 px-3">
+                  <div className={`font-bold tabular-nums text-base ${score > challengerScore ? "text-emerald-600" : "text-slate-800"}`}>
+                    {score.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">Your score</div>
+                </div>
+                <div className="bg-white/70 rounded-xl py-2 px-3">
+                  <div className="font-bold tabular-nums text-base text-slate-500">
+                    {challengerScore.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wide font-medium">Friend&apos;s score</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats — hide score in Zen, hide time in Time's Up */}
         <div className={`grid gap-2 mb-5 ${timedOut || isZen ? "grid-cols-2" : "grid-cols-4"}`}>
           {timedOut ? (
@@ -212,6 +262,17 @@ export default function CompletionModal({
             {onTryHarder ? "↑ Try Harder" : "↑ Max Pieces"}
           </button>
         </div>
+
+        {/* Challenge a Friend — only when the player genuinely completed the puzzle */}
+        {!timedOut && !isZen && onChallengeShare && (
+          <button
+            onClick={onChallengeShare}
+            className="w-full mb-2 py-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold rounded-xl hover:from-amber-500 hover:to-orange-500 transition-all min-h-[48px] text-sm shadow-sm flex items-center justify-center gap-2"
+          >
+            <span>🏆</span>
+            <span>Challenge a Friend</span>
+          </button>
+        )}
 
         {/* Share buttons */}
         <div className="flex gap-2 mb-2">
